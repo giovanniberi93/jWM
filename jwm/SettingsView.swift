@@ -6,11 +6,29 @@
 //
 
 import SwiftUI
+import ServiceManagement
 import UniformTypeIdentifiers
 
 struct SettingsView: View {
+    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+
     var body: some View {
         Form {
+            Section("General") {
+                Toggle("Launch at login", isOn: $launchAtLogin)
+                    .onChange(of: launchAtLogin) { _, newValue in
+                        do {
+                            if newValue {
+                                try SMAppService.mainApp.register()
+                            } else {
+                                try SMAppService.mainApp.unregister()
+                            }
+                        } catch {
+                            print("jwm: Failed to update launch at login: \(error)")
+                            launchAtLogin = SMAppService.mainApp.status == .enabled
+                        }
+                    }
+            }
             Section("App Bindings") {
                 ForEach(0...9, id: \.self) { slot in
                     SlotPairRow(slot: slot)
@@ -18,7 +36,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480, height: 600)
+        .frame(width: 480, height: 650)
     }
 }
 

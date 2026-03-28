@@ -7,12 +7,17 @@ build:
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Debug -derivedDataPath $(BUILD_DIR) build
 
 .PHONY: run
-run: build 
+run: build
 	open $(BUILD_DIR)/Build/Products/Debug/$(SCHEME).app
 
 .PHONY: dev
 dev: build
 	$(BUILD_DIR)/Build/Products/Debug/$(SCHEME).app/Contents/MacOS/$(SCHEME)
+
+.PHONY: install
+install: build
+	rm -rf /Applications/$(SCHEME).app
+	cp -R $(BUILD_DIR)/Build/Products/Debug/$(SCHEME).app /Applications/
 
 .PHONY: clean
 clean:
