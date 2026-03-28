@@ -10,6 +10,10 @@ build:
 run: build 
 	open $(BUILD_DIR)/Build/Products/Debug/$(SCHEME).app
 
+.PHONY: dev
+dev: build
+	$(BUILD_DIR)/Build/Products/Debug/$(SCHEME).app/Contents/MacOS/$(SCHEME)
+
 .PHONY: clean
 clean:
 	rm -rf $(BUILD_DIR)
