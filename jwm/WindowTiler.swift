@@ -13,9 +13,19 @@ enum TilePosition {
     case fullScreen
 }
 
+/// Tracks which app occupies each screen slot.
+struct SlotState {
+    var left: pid_t?
+    var right: pid_t?
+    var fullScreen: pid_t?
+}
+
 enum WindowTiler {
+    static var slots = SlotState()
+
     /// Tile the frontmost window of the given app to the specified position.
     /// If no app is specified, tiles the frontmost window of the currently active app.
+    /// Automatically displaces a full-screen app to the opposite half when needed.
     static func tile(_ position: TilePosition, app: NSRunningApplication? = nil) {
         let targetApp = app ?? NSWorkspace.shared.frontmostApplication
         guard let targetApp = targetApp else {
@@ -30,37 +40,63 @@ enum WindowTiler {
         }
         // visibleFrame excludes the menu bar and Dock
         let frame = screen.visibleFrame
+        let screenFull = screen.frame
+        let cgRect = rectForPosition(position, frame: frame, screenFull: screenFull)
 
+        let pid = targetApp.processIdentifier
+
+        // Displace full-screen app to the opposite half if we're tiling to a half
+        if position == .left || position == .right {
+            if let fullPid = slots.fullScreen, fullPid != pid {
+                let oppositePosition: TilePosition = (position == .left) ? .right : .left
+                print("jwm: Displacing full-screen app (pid \(fullPid)) to \(oppositePosition)")
+                let oppositeRect = rectForPosition(oppositePosition, frame: frame, screenFull: screenFull)
+                setWindowPosition(pid: fullPid, rect: oppositeRect)
+                // Update slots for the displaced app
+                if oppositePosition == .left {
+                    slots.left = fullPid
+                } else {
+                    slots.right = fullPid
+                }
+                slots.fullScreen = nil
+            }
+        }
+
+        setWindowPosition(pid: pid, rect: cgRect)
+
+        // Update slot tracking
+        switch position {
+        case .left:
+            slots.left = pid
+            if slots.fullScreen == pid { slots.fullScreen = nil }
+            if slots.right == pid { slots.right = nil }
+        case .right:
+            slots.right = pid
+            if slots.fullScreen == pid { slots.fullScreen = nil }
+            if slots.left == pid { slots.left = nil }
+        case .fullScreen:
+            slots.fullScreen = pid
+            if slots.left == pid { slots.left = nil }
+            if slots.right == pid { slots.right = nil }
+        }
+    }
+
+    private static func rectForPosition(_ position: TilePosition, frame: NSRect, screenFull: NSRect) -> CGRect {
         let targetRect: CGRect
         switch position {
         case .left:
-            targetRect = CGRect(
-                x: frame.origin.x,
-                y: frame.origin.y,
-                width: frame.width / 2,
-                height: frame.height
-            )
+            targetRect = CGRect(x: frame.origin.x, y: frame.origin.y, width: frame.width / 2, height: frame.height)
         case .right:
-            targetRect = CGRect(
-                x: frame.origin.x + frame.width / 2,
-                y: frame.origin.y,
-                width: frame.width / 2,
-                height: frame.height
-            )
+            targetRect = CGRect(x: frame.origin.x + frame.width / 2, y: frame.origin.y, width: frame.width / 2, height: frame.height)
         case .fullScreen:
             targetRect = frame
         }
-
-        // Convert from NSScreen coordinates (origin at bottom-left) to CGWindow coordinates (origin at top-left)
-        let screenFull = NSScreen.main?.frame ?? screen.frame
-        let cgRect = CGRect(
+        return CGRect(
             x: targetRect.origin.x,
             y: screenFull.height - targetRect.origin.y - targetRect.height,
             width: targetRect.width,
             height: targetRect.height
         )
-
-        setWindowPosition(pid: targetApp.processIdentifier, rect: cgRect)
     }
 
     private static func setWindowPosition(pid: pid_t, rect: CGRect) {
