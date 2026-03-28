@@ -4,9 +4,12 @@ A macOS tiling window manager optimized for single-screen usage. Combines app fo
 
 ## Design Decisions
 
-### Core Interaction: cmd+N chord
+### Core Interaction: cmd+N hold-based chord
 
-The user selects apps with `cmd+N` (e.g. cmd+1 for Terminal). This focuses the app. Within a short timeout (~500ms), a follow-up position key tiles the window. If no follow-up key is pressed, the app is simply focused in its current position/size.
+The user selects apps with `cmd+N` (e.g. cmd+1 for Terminal). The behaviour depends on whether `cmd` is held or released:
+
+- **`cmd+N`, release `cmd`** → Focus the app, keep current position/size (instant, no delay).
+- **`cmd+N`, keep holding `cmd`, press position key** → Focus the app and tile it. The window is moved to position *before* being brought to front, so it appears already in place.
 
 ### Position Keys
 
@@ -16,21 +19,27 @@ The user selects apps with `cmd+N` (e.g. cmd+1 for Terminal). This focuses the a
 | `l` | Right half |
 | `j` | Full screen |
 
-Top/bottom halves are out of scope for now.
+Top/bottom halves are out of scope for now. "Full screen" means maximized to the screen's visible area (excluding menu bar and Dock) — NOT macOS native fullscreen which creates a new desktop/space.
 
 ### Examples
 
 | Keys | Action |
 |------|--------|
-| `cmd+1` | Focus app 1, keep current position |
-| `cmd+1`, `h` | Focus app 1, tile to left half |
-| `cmd+2`, `l` | Focus app 2, tile to right half |
-| `cmd+1`, `h`, `cmd+2`, `l` | App 1 left, app 2 right |
-| `cmd+3`, `j` | Focus app 3, full screen |
+| `cmd+1`, release cmd | Focus app 1, keep current position |
+| `cmd+1`, hold cmd, `h` | Focus app 1, tile to left half |
+| `cmd+2`, hold cmd, `l` | Focus app 2, tile to right half |
+| `cmd+1`, hold cmd, `h`, `cmd+2`, hold cmd, `l` | App 1 left, app 2 right |
+| `cmd+3`, hold cmd, `j` | Focus app 3, full screen |
+| `cmd+shift+1`, release cmd | Focus alternate app for slot 1 |
+| `cmd+shift+1`, hold cmd, `h` | Focus alternate app for slot 1, tile left |
 
 ### App Bindings
 
-App-to-key mappings (cmd+1, cmd+2, etc.) are user-configurable via config file or UI. Do not hardcode specific app assignments.
+Each slot (0-9) has two bindings:
+- `cmd+N` — primary app
+- `cmd+shift+N` — alternate app (e.g. cmd+3 = Chrome, cmd+shift+3 = Firefox)
+
+App-to-key mappings are user-configurable via the Settings UI. Do not hardcode specific app assignments.
 
 ### Automatic Window Rearrangement
 
@@ -54,9 +63,9 @@ To move the currently focused app without selecting it by number:
 
 No chord/timeout needed — single keystroke, immediate effect. Same h/l/j position keys for consistency.
 
-### Alternative Interaction (Option C — future consideration)
+### Design Note: hold-based vs timeout-based chord
 
-Instead of a timeout-based chord, detect whether `cmd` is released to distinguish "just focus" from "focus + position." This would be a localized change in the input handling layer if we switch later.
+We initially tried a timeout-based approach (500ms window after cmd+N for a position key). This added noticeable delay to plain focus. The hold-based approach (detect cmd release) eliminates the delay entirely. The timeout approach was discarded.
 
 ## Scope
 
