@@ -32,6 +32,16 @@ Top/bottom halves are out of scope for now.
 
 App-to-key mappings (cmd+1, cmd+2, etc.) are user-configurable via config file or UI. Do not hardcode specific app assignments.
 
+### Automatic Window Rearrangement
+
+When tiling a window, the system automatically adjusts other visible windows:
+
+- **Full-screen app + new half tile:** The full-screen app shrinks to the opposite half. E.g., app1 is full screen, `cmd+2, h` → app2 takes left, app1 moves to right.
+- **Half tile replaces existing half tile:** The new app takes the slot, the previous occupant goes behind (no repositioning). E.g., app1 left, app2 right, `cmd+3, l` → app3 takes right, app2 goes behind.
+- **New full-screen app:** Covers everything, other apps remain in their positions behind it.
+
+The mental model is two slots (left, right). Full screen occupies both. Only a full-screen app auto-repositions when displaced; other displaced apps simply lose focus.
+
 ### Alternative Interaction (Option C — future consideration)
 
 Instead of a timeout-based chord, detect whether `cmd` is released to distinguish "just focus" from "focus + position." This would be a localized change in the input handling layer if we switch later.
