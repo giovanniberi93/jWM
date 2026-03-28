@@ -11,12 +11,15 @@ import Carbon.HIToolbox
 final class HotkeyManager {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
-    private var handler: ((Int) -> Void)?
+    private var slotHandler: ((Int) -> Void)?
+    private var tileHandler: ((TilePosition) -> Void)?
 
-    /// Start listening for global cmd+N hotkeys.
-    /// The handler is called with the slot number (1-9).
-    func start(handler: @escaping (Int) -> Void) {
-        self.handler = handler
+    /// Start listening for global hotkeys.
+    /// slotHandler is called with the slot number (0-9) for cmd+N.
+    /// tileHandler is called with the position for ctrl+cmd+h/l/j.
+    func start(slotHandler: @escaping (Int) -> Void, tileHandler: @escaping (TilePosition) -> Void) {
+        self.slotHandler = slotHandler
+        self.tileHandler = tileHandler
 
         let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
         let callback: CGEventTapCallBack = { proxy, type, event, refcon in
@@ -42,11 +45,13 @@ final class HotkeyManager {
         self.runLoopSource = CFMachPortCreateRunLoopSource(nil, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
+        print("jwm: Event tap started successfully")
     }
 
     private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         // Re-enable tap if it gets disabled by the system
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            print("jwm: Event tap was disabled, re-enabling")
             if let tap = eventTap {
                 CGEvent.tapEnable(tap: tap, enable: true)
             }
@@ -57,34 +62,46 @@ final class HotkeyManager {
 
         let flags = event.flags
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+        let hasCmd = flags.contains(.maskCommand)
+        let hasCtrl = flags.contains(.maskControl)
+        let hasAlt = flags.contains(.maskAlternate)
 
-        // Only handle cmd+N (cmd held, no other modifiers except shift)
-        guard flags.contains(.maskCommand),
-              !flags.contains(.maskControl),
-              !flags.contains(.maskAlternate) else {
-            return Unmanaged.passRetained(event)
+        // ctrl+cmd+h/l/j → tile current window
+        if hasCmd && hasCtrl && !hasAlt {
+            let keyCodeToPosition: [Int64: TilePosition] = [
+                Int64(kVK_ANSI_H): .left,
+                Int64(kVK_ANSI_L): .right,
+                Int64(kVK_ANSI_J): .fullScreen,
+            ]
+            if let position = keyCodeToPosition[keyCode] {
+                print("jwm: Tile current window -> \(position)")
+                tileHandler?(position)
+                return nil
+            }
         }
 
-        // Map key codes for 0-9
-        let keyCodeToSlot: [Int64: Int] = [
-            Int64(kVK_ANSI_0): 0,
-            Int64(kVK_ANSI_1): 1,
-            Int64(kVK_ANSI_2): 2,
-            Int64(kVK_ANSI_3): 3,
-            Int64(kVK_ANSI_4): 4,
-            Int64(kVK_ANSI_5): 5,
-            Int64(kVK_ANSI_6): 6,
-            Int64(kVK_ANSI_7): 7,
-            Int64(kVK_ANSI_8): 8,
-            Int64(kVK_ANSI_9): 9,
-        ]
-
-        guard let slot = keyCodeToSlot[keyCode] else {
-            return Unmanaged.passRetained(event)
+        // cmd+N → focus app slot
+        if hasCmd && !hasCtrl && !hasAlt {
+            let keyCodeToSlot: [Int64: Int] = [
+                Int64(kVK_ANSI_0): 0,
+                Int64(kVK_ANSI_1): 1,
+                Int64(kVK_ANSI_2): 2,
+                Int64(kVK_ANSI_3): 3,
+                Int64(kVK_ANSI_4): 4,
+                Int64(kVK_ANSI_5): 5,
+                Int64(kVK_ANSI_6): 6,
+                Int64(kVK_ANSI_7): 7,
+                Int64(kVK_ANSI_8): 8,
+                Int64(kVK_ANSI_9): 9,
+            ]
+            if let slot = keyCodeToSlot[keyCode] {
+                print("jwm: Slot \(slot) triggered")
+                slotHandler?(slot)
+                return nil
+            }
         }
 
-        handler?(slot)
-        return nil // Swallow the event
+        return Unmanaged.passRetained(event)
     }
 
     func stop() {

@@ -60,10 +60,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
 
-        hotkeyManager.start { slot in
-            let bundleID = UserDefaults.standard.string(forKey: "slot\(slot)_bundleID") ?? ""
-            guard !bundleID.isEmpty else { return }
-            AppFocuser.focusOrLaunch(bundleID: bundleID)
+        let trusted = AXIsProcessTrusted()
+        print("jwm: Accessibility trusted = \(trusted)")
+        if !trusted {
+            print("jwm: Requesting Accessibility permission...")
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+            AXIsProcessTrustedWithOptions(options)
         }
+
+        hotkeyManager.start(
+            slotHandler: { slot in
+                let bundleID = UserDefaults.standard.string(forKey: "slot\(slot)_bundleID") ?? ""
+                guard !bundleID.isEmpty else { return }
+                AppFocuser.focusOrLaunch(bundleID: bundleID)
+            },
+            tileHandler: { position in
+                WindowTiler.tile(position)
+            }
+        )
     }
 }

@@ -9,6 +9,9 @@ xcuserdata/
 # macOS
 .DS_Store
 
+# Profiling
+*.profraw
+
 # Swift Package Manager
 .build/
 .swiftpm/
