@@ -42,6 +42,18 @@ When tiling a window, the system automatically adjusts other visible windows:
 
 The mental model is two slots (left, right). Full screen occupies both. Only a full-screen app auto-repositions when displaced; other displaced apps simply lose focus.
 
+### Direct Window Positioning: ctrl+cmd+position
+
+To move the currently focused app without selecting it by number:
+
+| Keys | Action |
+|------|--------|
+| `ctrl+cmd+h` | Current app → left half |
+| `ctrl+cmd+l` | Current app → right half |
+| `ctrl+cmd+j` | Current app → full screen |
+
+No chord/timeout needed — single keystroke, immediate effect. Same h/l/j position keys for consistency.
+
 ### Alternative Interaction (Option C — future consideration)
 
 Instead of a timeout-based chord, detect whether `cmd` is released to distinguish "just focus" from "focus + position." This would be a localized change in the input handling layer if we switch later.
