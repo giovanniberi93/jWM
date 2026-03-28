@@ -14,10 +14,12 @@ run: build
 dev: build
 	$(BUILD_DIR)/Build/Products/Debug/$(SCHEME).app/Contents/MacOS/$(SCHEME)
 
+APP_NAME = jWM
+
 .PHONY: install
 install: build
-	rm -rf /Applications/$(SCHEME).app
-	cp -R $(BUILD_DIR)/Build/Products/Debug/$(SCHEME).app /Applications/
+	rm -rf /Applications/$(APP_NAME).app
+	cp -R $(BUILD_DIR)/Build/Products/Debug/$(SCHEME).app /Applications/$(APP_NAME).app
 
 .PHONY: clean
 clean:
