@@ -15,10 +15,8 @@ final class HotkeyManager {
     private var tileHandler: ((TilePosition) -> Void)?
     private var slotTileHandler: ((String, TilePosition) -> Void)?
 
-    // Chord state: after cmd+N, wait for a position key
+    // Chord state: after cmd+N, waiting for either cmd release (focus only) or position key (tile)
     private var pendingSlotKey: String?
-    private var chordTimer: DispatchWorkItem?
-    private let chordTimeout: TimeInterval = 0.5
 
     private let keyCodeToPosition: [Int64: TilePosition] = [
         Int64(kVK_ANSI_H): .left,
@@ -40,13 +38,9 @@ final class HotkeyManager {
     ]
 
     /// Start listening for global hotkeys.
-    /// - slotHandler: called with slot number (0-9) for cmd+N (focus only).
+    /// - slotHandler: called with slot key (e.g. "slot1" or "shiftSlot1") on cmd release (focus only).
     /// - tileHandler: called with position for ctrl+cmd+h/l/j (tile current window).
-    /// - slotTileHandler: called with (slot, position) for cmd+N then h/l/j chord (focus + tile).
-    /// Start listening for global hotkeys.
-    /// - slotHandler: called with slot key (e.g. "slot1" or "shiftSlot1") for cmd+N / cmd+shift+N.
-    /// - tileHandler: called with position for ctrl+cmd+h/l/j (tile current window).
-    /// - slotTileHandler: called with (slotKey, position) for cmd+N then h/l/j chord (focus + tile).
+    /// - slotTileHandler: called with (slotKey, position) when position key pressed while cmd held (focus + tile).
     func start(
         slotHandler: @escaping (String) -> Void,
         tileHandler: @escaping (TilePosition) -> Void,
@@ -56,7 +50,7 @@ final class HotkeyManager {
         self.tileHandler = tileHandler
         self.slotTileHandler = slotTileHandler
 
-        let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
+        let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.flagsChanged.rawValue)
         let callback: CGEventTapCallBack = { proxy, type, event, refcon in
             guard let refcon = refcon else { return Unmanaged.passRetained(event) }
             let manager = Unmanaged<HotkeyManager>.fromOpaque(refcon).takeUnretainedValue()
@@ -93,26 +87,44 @@ final class HotkeyManager {
             return Unmanaged.passRetained(event)
         }
 
+        let flags = event.flags
+
+        // cmd released while we have a pending slot → focus only
+        if type == .flagsChanged, let slotKey = pendingSlotKey {
+            if !flags.contains(.maskCommand) {
+                print("jwm: cmd released, focus only: \(slotKey)")
+                pendingSlotKey = nil
+                slotHandler?(slotKey)
+            }
+            return Unmanaged.passRetained(event)
+        }
+
         guard type == .keyDown else { return Unmanaged.passRetained(event) }
 
-        let flags = event.flags
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let hasCmd = flags.contains(.maskCommand)
         let hasCtrl = flags.contains(.maskControl)
         let hasAlt = flags.contains(.maskAlternate)
         let hasShift = flags.contains(.maskShift)
 
-        // If we're waiting for a position key after cmd+N...
-        if let slotKey = pendingSlotKey {
-            if let position = keyCodeToPosition[keyCode], !hasCmd && !hasCtrl && !hasAlt {
-                // Bare h/l/j → complete the chord
+        // If we have a pending slot and cmd is still held, check for position key
+        if let slotKey = pendingSlotKey, hasCmd {
+            if let position = keyCodeToPosition[keyCode] {
                 print("jwm: Chord complete: \(slotKey) -> \(position)")
-                cancelChord()
+                pendingSlotKey = nil
                 slotTileHandler?(slotKey, position)
                 return nil
             }
-            // Any other key cancels the chord
-            cancelChord()
+            // Another cmd+N while holding cmd → switch to new slot
+            if let slot = keyCodeToSlot[keyCode] {
+                let newSlotKey = hasShift ? "shiftSlot\(slot)" : "slot\(slot)"
+                print("jwm: Switching pending slot from \(slotKey) to \(newSlotKey)")
+                pendingSlotKey = newSlotKey
+                return nil
+            }
+            // Any other key with cmd held → cancel chord, pass through
+            print("jwm: Chord cancelled by other key")
+            pendingSlotKey = nil
         }
 
         // ctrl+cmd+h/l/j → tile current window
@@ -124,36 +136,17 @@ final class HotkeyManager {
             }
         }
 
-        // cmd+N or cmd+shift+N → focus app slot, start chord timer
+        // cmd+N or cmd+shift+N → start chord (defer focus until cmd release)
         if hasCmd && !hasCtrl && !hasAlt {
             if let slot = keyCodeToSlot[keyCode] {
                 let slotKey = hasShift ? "shiftSlot\(slot)" : "slot\(slot)"
-                print("jwm: \(slotKey) triggered, waiting for position key...")
-                slotHandler?(slotKey)
-                startChord(slotKey: slotKey)
+                print("jwm: \(slotKey) triggered, holding for position key...")
+                pendingSlotKey = slotKey
                 return nil
             }
         }
 
         return Unmanaged.passRetained(event)
-    }
-
-    private func startChord(slotKey: String) {
-        cancelChord()
-        pendingSlotKey = slotKey
-        let timer = DispatchWorkItem { [weak self] in
-            guard let self = self, self.pendingSlotKey == slotKey else { return }
-            print("jwm: Chord timeout for \(slotKey), focus only")
-            self.pendingSlotKey = nil
-        }
-        chordTimer = timer
-        DispatchQueue.main.asyncAfter(deadline: .now() + chordTimeout, execute: timer)
-    }
-
-    private func cancelChord() {
-        chordTimer?.cancel()
-        chordTimer = nil
-        pendingSlotKey = nil
     }
 
     func stop() {

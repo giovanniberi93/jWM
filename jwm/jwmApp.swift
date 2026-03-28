@@ -88,14 +88,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     print("jwm: \(slotKey) has no app configured")
                     return
                 }
-                print("jwm: Focus + tile \(slotKey) -> \(bundleID) -> \(position)")
-                AppFocuser.focusOrLaunch(bundleID: bundleID)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
-                        WindowTiler.tile(position, app: app)
-                    } else {
-                        print("jwm: App \(bundleID) not running after focus attempt")
-                    }
+                print("jwm: Tile + focus \(slotKey) -> \(bundleID) -> \(position)")
+                // Tile first (while app is still in background), then bring it forward
+                if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
+                    WindowTiler.tile(position, app: app)
+                    app.activate()
+                } else {
+                    print("jwm: App \(bundleID) not running, launching...")
+                    AppFocuser.focusOrLaunch(bundleID: bundleID)
                 }
             }
         )
