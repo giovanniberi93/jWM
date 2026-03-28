@@ -65,8 +65,9 @@ final class HotkeyManager {
             return Unmanaged.passRetained(event)
         }
 
-        // Map key codes for 1-9
+        // Map key codes for 0-9
         let keyCodeToSlot: [Int64: Int] = [
+            Int64(kVK_ANSI_0): 0,
             Int64(kVK_ANSI_1): 1,
             Int64(kVK_ANSI_2): 2,
             Int64(kVK_ANSI_3): 3,

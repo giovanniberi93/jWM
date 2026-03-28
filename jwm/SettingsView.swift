@@ -9,39 +9,51 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct SettingsView: View {
-    @AppStorage("slot1_bundleID") private var slot1BundleID: String = ""
-    @AppStorage("slot1_appName") private var slot1AppName: String = ""
-
     var body: some View {
         Form {
             Section("App Bindings") {
-                HStack {
-                    Text("cmd+1")
-                        .font(.system(.body, design: .monospaced))
-                        .frame(width: 60, alignment: .leading)
-                    Text(slot1AppName.isEmpty ? "Not set" : slot1AppName)
-                        .foregroundStyle(slot1AppName.isEmpty ? .secondary : .primary)
-                    Spacer()
-                    if !slot1AppName.isEmpty {
-                        Button("Clear") {
-                            slot1BundleID = ""
-                            slot1AppName = ""
-                        }
-                    }
-                    Button("Choose...") {
-                        pickApp { bundleID, name in
-                            slot1BundleID = bundleID
-                            slot1AppName = name
-                        }
-                    }
+                ForEach(0...9, id: \.self) { slot in
+                    SlotRow(slot: slot)
                 }
             }
         }
         .formStyle(.grouped)
-        .frame(width: 400, height: 150)
+        .frame(width: 420, height: 450)
+    }
+}
+
+struct SlotRow: View {
+    let slot: Int
+    @AppStorage var bundleID: String
+    @AppStorage var appName: String
+
+    init(slot: Int) {
+        self.slot = slot
+        _bundleID = AppStorage(wrappedValue: "", "slot\(slot)_bundleID")
+        _appName = AppStorage(wrappedValue: "", "slot\(slot)_appName")
     }
 
-    private func pickApp(completion: @escaping (String, String) -> Void) {
+    var body: some View {
+        HStack {
+            Text("⌘+\(slot)")
+                .font(.system(.body, design: .monospaced))
+                .frame(width: 60, alignment: .leading)
+            Text(appName.isEmpty ? "Not set" : appName)
+                .foregroundStyle(appName.isEmpty ? .secondary : .primary)
+            Spacer()
+            if !appName.isEmpty {
+                Button("Clear") {
+                    bundleID = ""
+                    appName = ""
+                }
+            }
+            Button("Choose...") {
+                pickApp()
+            }
+        }
+    }
+
+    private func pickApp() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.application]
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
@@ -51,9 +63,9 @@ struct SettingsView: View {
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
             guard let bundle = Bundle(url: url),
-                  let bundleID = bundle.bundleIdentifier else { return }
-            let name = FileManager.default.displayName(atPath: url.path)
-            completion(bundleID, name)
+                  let bid = bundle.bundleIdentifier else { return }
+            bundleID = bid
+            appName = FileManager.default.displayName(atPath: url.path)
         }
     }
 }
