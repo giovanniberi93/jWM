@@ -69,26 +69,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         hotkeyManager.start(
-            slotHandler: { slot in
-                let bundleID = UserDefaults.standard.string(forKey: "slot\(slot)_bundleID") ?? ""
+            slotHandler: { slotKey in
+                let bundleID = UserDefaults.standard.string(forKey: "\(slotKey)_bundleID") ?? ""
                 guard !bundleID.isEmpty else {
-                    print("jwm: Slot \(slot) has no app configured")
+                    print("jwm: \(slotKey) has no app configured")
                     return
                 }
-                print("jwm: Focusing slot \(slot) -> \(bundleID)")
+                print("jwm: Focusing \(slotKey) -> \(bundleID)")
                 AppFocuser.focusOrLaunch(bundleID: bundleID)
             },
             tileHandler: { position in
                 print("jwm: Tiling current window -> \(position)")
                 WindowTiler.tile(position)
             },
-            slotTileHandler: { slot, position in
-                let bundleID = UserDefaults.standard.string(forKey: "slot\(slot)_bundleID") ?? ""
+            slotTileHandler: { slotKey, position in
+                let bundleID = UserDefaults.standard.string(forKey: "\(slotKey)_bundleID") ?? ""
                 guard !bundleID.isEmpty else {
-                    print("jwm: Slot \(slot) has no app configured")
+                    print("jwm: \(slotKey) has no app configured")
                     return
                 }
-                print("jwm: Focus + tile slot \(slot) -> \(bundleID) -> \(position)")
+                print("jwm: Focus + tile \(slotKey) -> \(bundleID) -> \(position)")
                 AppFocuser.focusOrLaunch(bundleID: bundleID)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {

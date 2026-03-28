@@ -11,12 +11,12 @@ import Carbon.HIToolbox
 final class HotkeyManager {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
-    private var slotHandler: ((Int) -> Void)?
+    private var slotHandler: ((String) -> Void)?
     private var tileHandler: ((TilePosition) -> Void)?
-    private var slotTileHandler: ((Int, TilePosition) -> Void)?
+    private var slotTileHandler: ((String, TilePosition) -> Void)?
 
     // Chord state: after cmd+N, wait for a position key
-    private var pendingSlot: Int?
+    private var pendingSlotKey: String?
     private var chordTimer: DispatchWorkItem?
     private let chordTimeout: TimeInterval = 0.5
 
@@ -43,10 +43,14 @@ final class HotkeyManager {
     /// - slotHandler: called with slot number (0-9) for cmd+N (focus only).
     /// - tileHandler: called with position for ctrl+cmd+h/l/j (tile current window).
     /// - slotTileHandler: called with (slot, position) for cmd+N then h/l/j chord (focus + tile).
+    /// Start listening for global hotkeys.
+    /// - slotHandler: called with slot key (e.g. "slot1" or "shiftSlot1") for cmd+N / cmd+shift+N.
+    /// - tileHandler: called with position for ctrl+cmd+h/l/j (tile current window).
+    /// - slotTileHandler: called with (slotKey, position) for cmd+N then h/l/j chord (focus + tile).
     func start(
-        slotHandler: @escaping (Int) -> Void,
+        slotHandler: @escaping (String) -> Void,
         tileHandler: @escaping (TilePosition) -> Void,
-        slotTileHandler: @escaping (Int, TilePosition) -> Void
+        slotTileHandler: @escaping (String, TilePosition) -> Void
     ) {
         self.slotHandler = slotHandler
         self.tileHandler = tileHandler
@@ -96,14 +100,15 @@ final class HotkeyManager {
         let hasCmd = flags.contains(.maskCommand)
         let hasCtrl = flags.contains(.maskControl)
         let hasAlt = flags.contains(.maskAlternate)
+        let hasShift = flags.contains(.maskShift)
 
         // If we're waiting for a position key after cmd+N...
-        if let slot = pendingSlot {
+        if let slotKey = pendingSlotKey {
             if let position = keyCodeToPosition[keyCode], !hasCmd && !hasCtrl && !hasAlt {
                 // Bare h/l/j → complete the chord
-                print("jwm: Chord complete: slot \(slot) -> \(position)")
+                print("jwm: Chord complete: \(slotKey) -> \(position)")
                 cancelChord()
-                slotTileHandler?(slot, position)
+                slotTileHandler?(slotKey, position)
                 return nil
             }
             // Any other key cancels the chord
@@ -119,12 +124,13 @@ final class HotkeyManager {
             }
         }
 
-        // cmd+N → focus app slot, start chord timer
+        // cmd+N or cmd+shift+N → focus app slot, start chord timer
         if hasCmd && !hasCtrl && !hasAlt {
             if let slot = keyCodeToSlot[keyCode] {
-                print("jwm: Slot \(slot) triggered, waiting for position key...")
-                slotHandler?(slot)
-                startChord(slot: slot)
+                let slotKey = hasShift ? "shiftSlot\(slot)" : "slot\(slot)"
+                print("jwm: \(slotKey) triggered, waiting for position key...")
+                slotHandler?(slotKey)
+                startChord(slotKey: slotKey)
                 return nil
             }
         }
@@ -132,13 +138,13 @@ final class HotkeyManager {
         return Unmanaged.passRetained(event)
     }
 
-    private func startChord(slot: Int) {
+    private func startChord(slotKey: String) {
         cancelChord()
-        pendingSlot = slot
+        pendingSlotKey = slotKey
         let timer = DispatchWorkItem { [weak self] in
-            guard let self = self, self.pendingSlot == slot else { return }
-            print("jwm: Chord timeout for slot \(slot), focus only")
-            self.pendingSlot = nil
+            guard let self = self, self.pendingSlotKey == slotKey else { return }
+            print("jwm: Chord timeout for \(slotKey), focus only")
+            self.pendingSlotKey = nil
         }
         chordTimer = timer
         DispatchQueue.main.asyncAfter(deadline: .now() + chordTimeout, execute: timer)
@@ -147,7 +153,7 @@ final class HotkeyManager {
     private func cancelChord() {
         chordTimer?.cancel()
         chordTimer = nil
-        pendingSlot = nil
+        pendingSlotKey = nil
     }
 
     func stop() {

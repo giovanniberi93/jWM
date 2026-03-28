@@ -13,31 +13,49 @@ struct SettingsView: View {
         Form {
             Section("App Bindings") {
                 ForEach(0...9, id: \.self) { slot in
-                    SlotRow(slot: slot)
+                    SlotPairRow(slot: slot)
                 }
             }
         }
         .formStyle(.grouped)
-        .frame(width: 420, height: 450)
+        .frame(width: 480, height: 600)
+    }
+}
+
+struct SlotPairRow: View {
+    let slot: Int
+
+    var body: some View {
+        VStack(spacing: 4) {
+            SlotRow(slot: slot, shifted: false)
+            SlotRow(slot: slot, shifted: true)
+        }
     }
 }
 
 struct SlotRow: View {
     let slot: Int
+    let shifted: Bool
     @AppStorage var bundleID: String
     @AppStorage var appName: String
 
-    init(slot: Int) {
+    init(slot: Int, shifted: Bool) {
         self.slot = slot
-        _bundleID = AppStorage(wrappedValue: "", "slot\(slot)_bundleID")
-        _appName = AppStorage(wrappedValue: "", "slot\(slot)_appName")
+        self.shifted = shifted
+        let prefix = shifted ? "shiftSlot\(slot)" : "slot\(slot)"
+        _bundleID = AppStorage(wrappedValue: "", "\(prefix)_bundleID")
+        _appName = AppStorage(wrappedValue: "", "\(prefix)_appName")
+    }
+
+    var label: String {
+        shifted ? "⌘ + ⇧ + \(slot)" : "⌘ + \(slot)"
     }
 
     var body: some View {
         HStack {
-            Text("⌘+\(slot)")
+            Text(label)
                 .font(.system(.body, design: .monospaced))
-                .frame(width: 60, alignment: .leading)
+                .frame(width: 90, alignment: .leading)
             Text(appName.isEmpty ? "Not set" : appName)
                 .foregroundStyle(appName.isEmpty ? .secondary : .primary)
             Spacer()
