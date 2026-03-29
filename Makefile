@@ -23,6 +23,11 @@ install: build
 	# TCC caches stale code signatures after rebuild, causing Accessibility to silently fail
 	tccutil reset Accessibility giober.jwm
 
+.PHONY: uninstall
+uninstall:
+	pkill -x jwm || true
+	rm -rf /Applications/$(APP_NAME).app
+
 .PHONY: clean
 clean:
 	rm -rf $(BUILD_DIR)

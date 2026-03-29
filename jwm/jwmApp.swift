@@ -73,6 +73,7 @@ final class SettingsWindowController {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private let hotkeyManager = HotkeyManager()
+    private var accessibilityTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier!).count > 1 {
@@ -83,41 +84,52 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         NSApp.setActivationPolicy(.accessory)
 
-        let trusted = AXIsProcessTrusted()
-        logger.info(" Accessibility trusted = \(trusted)")
-        if !trusted {
-            logger.info(" Requesting Accessibility permission...")
+        if AXIsProcessTrusted() {
+            logger.info("Accessibility trusted, starting hotkeys")
+            startHotkeys()
+        } else {
+            logger.info("Requesting Accessibility permission...")
             let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
             AXIsProcessTrustedWithOptions(options)
+            // Poll until permission is granted
+            accessibilityTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
+                if AXIsProcessTrusted() {
+                    logger.info("Accessibility permission granted")
+                    timer.invalidate()
+                    self?.accessibilityTimer = nil
+                    self?.startHotkeys()
+                }
+            }
         }
+    }
 
+    private func startHotkeys() {
         hotkeyManager.start(
             slotHandler: { slotKey in
                 let bundleID = UserDefaults.standard.string(forKey: "\(slotKey)_bundleID") ?? ""
                 guard !bundleID.isEmpty else {
-                    logger.info(" \(slotKey) has no app configured")
+                    logger.info("\(slotKey) has no app configured")
                     return
                 }
-                logger.info(" Focusing \(slotKey) -> \(bundleID)")
+                logger.info("Focusing \(slotKey) -> \(bundleID)")
                 AppFocuser.focusOrLaunch(bundleID: bundleID)
             },
             tileHandler: { position in
-                logger.info(" Tiling current window -> \(position)")
+                logger.info("Tiling current window -> \(position)")
                 WindowTiler.tile(position)
             },
             slotTileHandler: { slotKey, position in
                 let bundleID = UserDefaults.standard.string(forKey: "\(slotKey)_bundleID") ?? ""
                 guard !bundleID.isEmpty else {
-                    logger.info(" \(slotKey) has no app configured")
+                    logger.info("\(slotKey) has no app configured")
                     return
                 }
-                logger.info(" Tile + focus \(slotKey) -> \(bundleID) -> \(position)")
-                // Tile first (while app is still in background), then bring it forward
+                logger.info("Tile + focus \(slotKey) -> \(bundleID) -> \(position)")
                 if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
                     WindowTiler.tile(position, app: app)
                     app.activate()
                 } else {
-                    logger.info(" App \(bundleID) not running, launching...")
+                    logger.info("App \(bundleID) not running, launching...")
                     AppFocuser.focusOrLaunch(bundleID: bundleID)
                 }
             }
