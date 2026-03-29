@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import os
 import ServiceManagement
 import UniformTypeIdentifiers
 
@@ -24,7 +25,7 @@ struct SettingsView: View {
                                 try SMAppService.mainApp.unregister()
                             }
                         } catch {
-                            print("jwm: Failed to update launch at login: \(error)")
+                            logger.error("Failed to update launch at login: \(error)")
                             launchAtLogin = SMAppService.mainApp.status == .enabled
                         }
                     }

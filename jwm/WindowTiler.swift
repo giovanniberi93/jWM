@@ -6,11 +6,20 @@
 //
 
 import Cocoa
+import os
 
-enum TilePosition {
+enum TilePosition: CustomStringConvertible {
     case left
     case right
     case fullScreen
+
+    var description: String {
+        switch self {
+        case .left: return "left"
+        case .right: return "right"
+        case .fullScreen: return "fullScreen"
+        }
+    }
 }
 
 /// Tracks which app occupies each screen slot.
@@ -29,13 +38,13 @@ enum WindowTiler {
     static func tile(_ position: TilePosition, app: NSRunningApplication? = nil) {
         let targetApp = app ?? NSWorkspace.shared.frontmostApplication
         guard let targetApp = targetApp else {
-            print("jwm: No frontmost app found")
+            logger.info(" No frontmost app found")
             return
         }
-        print("jwm: Tiling \(targetApp.localizedName ?? "unknown") to \(position)")
+        logger.info(" Tiling \(targetApp.localizedName ?? "unknown") to \(position)")
 
         guard let screen = NSScreen.main else {
-            print("jwm: No main screen found")
+            logger.info(" No main screen found")
             return
         }
         // visibleFrame excludes the menu bar and Dock
@@ -49,7 +58,7 @@ enum WindowTiler {
         if position == .left || position == .right {
             if let fullPid = slots.fullScreen, fullPid != pid {
                 let oppositePosition: TilePosition = (position == .left) ? .right : .left
-                print("jwm: Displacing full-screen app (pid \(fullPid)) to \(oppositePosition)")
+                logger.info(" Displacing full-screen app (pid \(fullPid)) to \(oppositePosition)")
                 let oppositeRect = rectForPosition(oppositePosition, frame: frame, screenFull: screenFull)
                 setWindowPosition(pid: fullPid, rect: oppositeRect)
                 // Update slots for the displaced app
@@ -107,19 +116,19 @@ enum WindowTiler {
         var result = AXUIElementCopyAttributeValue(appRef, kAXFocusedWindowAttribute as CFString, &windowRef)
 
         if result != .success {
-            print("jwm: kAXFocusedWindow failed (\(result.rawValue)), trying kAXWindows...")
+            logger.info(" kAXFocusedWindow failed (\(result.rawValue)), trying kAXWindows...")
             // Fall back to first window in the windows list
             var windowsRef: CFTypeRef?
             result = AXUIElementCopyAttributeValue(appRef, kAXWindowsAttribute as CFString, &windowsRef)
             if result == .success, let windows = windowsRef as? [AXUIElement], let first = windows.first {
-                print("jwm: Found \(windows.count) window(s) via kAXWindows")
+                logger.info(" Found \(windows.count) window(s) via kAXWindows")
                 windowRef = first
             } else {
-                print("jwm: kAXWindows also failed (\(result.rawValue))")
+                logger.info(" kAXWindows also failed (\(result.rawValue))")
                 // Log available attributes for debugging
                 var names: CFArray?
                 if AXUIElementCopyAttributeNames(appRef, &names) == .success, let names = names as? [String] {
-                    print("jwm: Available attributes: \(names)")
+                    logger.info(" Available attributes: \(names)")
                 }
                 return
             }
@@ -127,19 +136,19 @@ enum WindowTiler {
 
         let axWindow = windowRef as! AXUIElement
 
-        print("jwm: Setting window to \(rect)")
+        logger.info(" Setting window to \(rect.debugDescription)")
 
         // Set position first, then size
         var position = CGPoint(x: rect.origin.x, y: rect.origin.y)
         if let posValue = AXValueCreate(.cgPoint, &position) {
             let posResult = AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
-            print("jwm: Set position -> \(posResult.rawValue)")
+            logger.info(" Set position -> \(posResult.rawValue)")
         }
 
         var size = CGSize(width: rect.width, height: rect.height)
         if let sizeValue = AXValueCreate(.cgSize, &size) {
             let sizeResult = AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
-            print("jwm: Set size -> \(sizeResult.rawValue)")
+            logger.info(" Set size -> \(sizeResult.rawValue)")
         }
     }
 }

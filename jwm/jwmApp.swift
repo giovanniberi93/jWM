@@ -6,6 +6,23 @@
 //
 
 import SwiftUI
+import os
+
+let logger = DualLogger()
+
+struct DualLogger {
+    private let osLog = Logger(subsystem: "giober.jwm", category: "general")
+
+    func info(_ message: String) {
+        osLog.info("\(message)")
+        print("jwm: \(message)")
+    }
+
+    func error(_ message: String) {
+        osLog.error("\(message)")
+        print("jwm: ERROR: \(message)")
+    }
+}
 
 @main
 struct jwmApp: App {
@@ -58,12 +75,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let hotkeyManager = HotkeyManager()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier!).count > 1 {
+            logger.info("Another instance is already running, quitting")
+            NSApp.terminate(nil)
+            return
+        }
+
         NSApp.setActivationPolicy(.accessory)
 
         let trusted = AXIsProcessTrusted()
-        print("jwm: Accessibility trusted = \(trusted)")
+        logger.info(" Accessibility trusted = \(trusted)")
         if !trusted {
-            print("jwm: Requesting Accessibility permission...")
+            logger.info(" Requesting Accessibility permission...")
             let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
             AXIsProcessTrustedWithOptions(options)
         }
@@ -72,29 +95,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             slotHandler: { slotKey in
                 let bundleID = UserDefaults.standard.string(forKey: "\(slotKey)_bundleID") ?? ""
                 guard !bundleID.isEmpty else {
-                    print("jwm: \(slotKey) has no app configured")
+                    logger.info(" \(slotKey) has no app configured")
                     return
                 }
-                print("jwm: Focusing \(slotKey) -> \(bundleID)")
+                logger.info(" Focusing \(slotKey) -> \(bundleID)")
                 AppFocuser.focusOrLaunch(bundleID: bundleID)
             },
             tileHandler: { position in
-                print("jwm: Tiling current window -> \(position)")
+                logger.info(" Tiling current window -> \(position)")
                 WindowTiler.tile(position)
             },
             slotTileHandler: { slotKey, position in
                 let bundleID = UserDefaults.standard.string(forKey: "\(slotKey)_bundleID") ?? ""
                 guard !bundleID.isEmpty else {
-                    print("jwm: \(slotKey) has no app configured")
+                    logger.info(" \(slotKey) has no app configured")
                     return
                 }
-                print("jwm: Tile + focus \(slotKey) -> \(bundleID) -> \(position)")
+                logger.info(" Tile + focus \(slotKey) -> \(bundleID) -> \(position)")
                 // Tile first (while app is still in background), then bring it forward
                 if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
                     WindowTiler.tile(position, app: app)
                     app.activate()
                 } else {
-                    print("jwm: App \(bundleID) not running, launching...")
+                    logger.info(" App \(bundleID) not running, launching...")
                     AppFocuser.focusOrLaunch(bundleID: bundleID)
                 }
             }

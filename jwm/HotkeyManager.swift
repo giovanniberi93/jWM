@@ -6,6 +6,7 @@
 //
 
 import Cocoa
+import os
 import Carbon.HIToolbox
 
 final class HotkeyManager {
@@ -66,7 +67,7 @@ final class HotkeyManager {
             callback: callback,
             userInfo: refcon
         ) else {
-            print("jwm: Failed to create event tap. Grant Accessibility permission in System Settings.")
+            logger.info(" Failed to create event tap. Grant Accessibility permission in System Settings.")
             return
         }
 
@@ -74,13 +75,13 @@ final class HotkeyManager {
         self.runLoopSource = CFMachPortCreateRunLoopSource(nil, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
-        print("jwm: Event tap started successfully")
+        logger.info(" Event tap started successfully")
     }
 
     private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         // Re-enable tap if it gets disabled by the system
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            print("jwm: Event tap was disabled, re-enabling")
+            logger.info(" Event tap was disabled, re-enabling")
             if let tap = eventTap {
                 CGEvent.tapEnable(tap: tap, enable: true)
             }
@@ -92,7 +93,7 @@ final class HotkeyManager {
         // cmd released while we have a pending slot → focus only
         if type == .flagsChanged, let slotKey = pendingSlotKey {
             if !flags.contains(.maskCommand) {
-                print("jwm: cmd released, focus only: \(slotKey)")
+                logger.info(" cmd released, focus only: \(slotKey)")
                 pendingSlotKey = nil
                 slotHandler?(slotKey)
             }
@@ -110,7 +111,7 @@ final class HotkeyManager {
         // If we have a pending slot and cmd is still held, check for position key
         if let slotKey = pendingSlotKey, hasCmd {
             if let position = keyCodeToPosition[keyCode] {
-                print("jwm: Chord complete: \(slotKey) -> \(position)")
+                logger.info(" Chord complete: \(slotKey) -> \(position)")
                 pendingSlotKey = nil
                 slotTileHandler?(slotKey, position)
                 return nil
@@ -118,19 +119,19 @@ final class HotkeyManager {
             // Another cmd+N while holding cmd → switch to new slot
             if let slot = keyCodeToSlot[keyCode] {
                 let newSlotKey = hasShift ? "shiftSlot\(slot)" : "slot\(slot)"
-                print("jwm: Switching pending slot from \(slotKey) to \(newSlotKey)")
+                logger.info(" Switching pending slot from \(slotKey) to \(newSlotKey)")
                 pendingSlotKey = newSlotKey
                 return nil
             }
             // Any other key with cmd held → cancel chord, pass through
-            print("jwm: Chord cancelled by other key")
+            logger.info(" Chord cancelled by other key")
             pendingSlotKey = nil
         }
 
         // ctrl+cmd+h/l/j → tile current window
         if hasCmd && hasCtrl && !hasAlt {
             if let position = keyCodeToPosition[keyCode] {
-                print("jwm: Tile current window -> \(position)")
+                logger.info(" Tile current window -> \(position)")
                 tileHandler?(position)
                 return nil
             }
@@ -140,7 +141,7 @@ final class HotkeyManager {
         if hasCmd && !hasCtrl && !hasAlt {
             if let slot = keyCodeToSlot[keyCode] {
                 let slotKey = hasShift ? "shiftSlot\(slot)" : "slot\(slot)"
-                print("jwm: \(slotKey) triggered, holding for position key...")
+                logger.info(" \(slotKey) triggered, holding for position key...")
                 pendingSlotKey = slotKey
                 return nil
             }
