@@ -19,7 +19,9 @@ APP_NAME = jWM
 .PHONY: install
 install: build
 	rm -rf /Applications/$(APP_NAME).app
-	cp -R $(BUILD_DIR)/Build/Products/Debug/$(SCHEME).app /Applications/$(APP_NAME).app
+	ditto $(BUILD_DIR)/Build/Products/Debug/$(SCHEME).app /Applications/$(APP_NAME).app
+	# TCC caches stale code signatures after rebuild, causing Accessibility to silently fail
+	tccutil reset Accessibility giober.jwm
 
 .PHONY: clean
 clean:
