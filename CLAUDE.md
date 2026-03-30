@@ -73,7 +73,7 @@ No chord/timeout needed — single keystroke, immediate effect. Same h/l/j posit
 - Single screen only
 - Configurable app bindings (config file or UI)
 - macOS menu bar app
-- Drag-and-drop window tiling
+- Drag-and-drop window tiling (left/right only; full screen via double-click title bar)
 
 ### Out of scope (for now)
 - Multi-monitor support

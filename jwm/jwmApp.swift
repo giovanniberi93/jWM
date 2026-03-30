@@ -66,6 +66,7 @@ final class SettingsWindowController {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private let hotkeyManager = HotkeyManager()
+    private let snapManager = SnapManager()
     private var accessibilityTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -97,6 +98,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func startHotkeys() {
+        snapManager.start()
         hotkeyManager.start(
             slotHandler: { slotKey in
                 let bundleID = UserDefaults.standard.string(forKey: "\(slotKey)_bundleID") ?? ""
