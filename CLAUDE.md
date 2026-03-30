@@ -63,9 +63,7 @@ To move the currently focused app without selecting it by number:
 
 No chord/timeout needed — single keystroke, immediate effect. Same h/l/j position keys for consistency.
 
-### Design Note: hold-based vs timeout-based chord
-
-We initially tried a timeout-based approach (500ms window after cmd+N for a position key). This added noticeable delay to plain focus. The hold-based approach (detect cmd release) eliminates the delay entirely. The timeout approach was discarded.
+> **Note:** A timeout-based chord (500ms window) was tried and discarded — it added noticeable delay to plain focus. The hold-based approach eliminates this entirely.
 
 ## Scope
 
@@ -75,6 +73,7 @@ We initially tried a timeout-based approach (500ms window after cmd+N for a posi
 - Single screen only
 - Configurable app bindings (config file or UI)
 - macOS menu bar app
+- Drag-and-drop window tiling
 
 ### Out of scope (for now)
 - Multi-monitor support
@@ -82,11 +81,12 @@ We initially tried a timeout-based approach (500ms window after cmd+N for a posi
 - Saved layouts
 - Top / bottom halves
 
-### Nice to have
-- Drag-and-drop window tiling
+## References
+
+- **[Rectangle](https://rectangleapp.com/)** — similar macOS window manager, useful as reference for solving window management problems. Source available at `/Users/giovanni.beri/workspace/Rectangle` (clone from `https://github.com/rxhanson/rectangle` if needed).
 
 ## Tech
 
 - **Platform:** macOS native Swift app
 - **Distribution:** Menu bar app
-- **License:** Open source (license TBD)
+- **License:** MIT

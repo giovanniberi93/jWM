@@ -1,10 +1,3 @@
-//
-//  SettingsView.swift
-//  jwm
-//
-//  Created by Giovanni Beri on 2026-03-28.
-//
-
 import SwiftUI
 import os
 import ServiceManagement

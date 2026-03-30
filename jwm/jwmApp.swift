@@ -1,10 +1,3 @@
-//
-//  jwmApp.swift
-//  jwm
-//
-//  Created by Giovanni Beri on 2026-03-28.
-//
-
 import SwiftUI
 import os
 
@@ -61,7 +54,7 @@ final class SettingsWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "jwm Settings"
+        window.title = "jWM Settings"
         window.contentView = NSHostingView(rootView: SettingsView())
         window.center()
         window.isReleasedWhenClosed = false

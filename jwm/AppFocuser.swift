@@ -1,10 +1,3 @@
-//
-//  AppFocuser.swift
-//  jwm
-//
-//  Created by Giovanni Beri on 2026-03-28.
-//
-
 import AppKit
 
 enum AppFocuser {

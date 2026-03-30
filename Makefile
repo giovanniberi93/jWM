@@ -21,7 +21,11 @@ install: build
 	rm -rf /Applications/$(APP_NAME).app
 	ditto $(BUILD_DIR)/Build/Products/Debug/$(SCHEME).app /Applications/$(APP_NAME).app
 	# TCC caches stale code signatures after rebuild, causing Accessibility to silently fail
-	tccutil reset Accessibility giober.jwm
+	@if command -v tccutil >/dev/null 2>&1; then \
+		tccutil reset Accessibility giober.jwm; \
+	else \
+		echo "WARNING: tccutil not found, skipping TCC reset"; \
+	fi
 
 .PHONY: uninstall
 uninstall:

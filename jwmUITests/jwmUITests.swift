@@ -1,10 +1,3 @@
-//
-//  jwmUITests.swift
-//  jwmUITests
-//
-//  Created by Giovanni Beri on 2026-03-28.
-//
-
 import XCTest
 
 final class jwmUITests: XCTestCase {
