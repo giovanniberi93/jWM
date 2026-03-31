@@ -29,7 +29,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading) {
                         Text("macOS drag&drop tiling")
                         Text(macOSTilingEnabled
-                             ? "❌ Should be disabled — conflicts with jWM's drag-to-edge snapping"
+                             ? "⚠️ Should be disabled — conflicts with jWM's drag-to-edge snapping"
                              : "✅ Already disabled — no conflict with jWM")
                             .font(.caption)
                             .foregroundStyle(macOSTilingEnabled ? .orange : .secondary)
