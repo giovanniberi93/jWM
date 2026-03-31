@@ -152,20 +152,36 @@ final class HotkeyManager {
 
     // MARK: - Double-click title bar → full screen
 
+    private static let titleBarRoles: Set<String> = [
+        kAXWindowRole as String,
+        kAXToolbarRole as String,
+        kAXStaticTextRole as String,
+    ]
+
     private func handleMouseUp(event: CGEvent) -> Unmanaged<CGEvent>? {
         let clickState = event.getIntegerValueField(.mouseEventClickState)
         guard clickState == 2 else { return Unmanaged.passRetained(event) }
 
         let point = event.location // CG coordinates (top-left origin)
-        guard let (windowElement, pid) = getWindowElementAtPoint(point) else {
+        guard let (windowElement, pid, hitRole) = getWindowElementAtPoint(point) else {
+            logger.info("dblclick: no window element at \(point)")
+            return Unmanaged.passRetained(event)
+        }
+
+        let appName = NSRunningApplication(processIdentifier: pid)?.localizedName ?? "pid=\(pid)"
+
+        guard Self.titleBarRoles.contains(hitRole) else {
+            logger.info("dblclick: rejected role=\(hitRole) app=\(appName) at \(point)")
             return Unmanaged.passRetained(event)
         }
 
         guard let titleBarFrame = getTitleBarFrame(windowElement: windowElement) else {
+            logger.info("dblclick: no title bar frame for app=\(appName)")
             return Unmanaged.passRetained(event)
         }
 
         guard titleBarFrame.contains(point) else {
+            logger.info("dblclick: outside title bar app=\(appName) point=\(point) frame=\(titleBarFrame)")
             return Unmanaged.passRetained(event)
         }
 
@@ -173,17 +189,22 @@ final class HotkeyManager {
             return Unmanaged.passRetained(event)
         }
 
-        logger.info("Double-click on title bar of \(app.localizedName ?? "unknown"), tiling full screen")
+        logger.info("dblclick: TILING app=\(app.localizedName ?? "unknown") role=\(hitRole) point=\(point) frame=\(titleBarFrame)")
         WindowTiler.tile(.fullScreen, app: app)
         return nil // suppress the event
     }
 
-    private func getWindowElementAtPoint(_ point: CGPoint) -> (AXUIElement, pid_t)? {
+    private func getWindowElementAtPoint(_ point: CGPoint) -> (AXUIElement, pid_t, String)? {
         let systemWide = AXUIElementCreateSystemWide()
 
         var elementRef: AXUIElement?
         guard AXUIElementCopyElementAtPosition(systemWide, Float(point.x), Float(point.y), &elementRef) == .success,
               let element = elementRef else { return nil }
+
+        // Grab the role of the element that was actually hit
+        var hitRoleRef: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &hitRoleRef)
+        let hitRole = (hitRoleRef as? String) ?? ""
 
         // Walk up to the window element
         var current = element
@@ -203,7 +224,7 @@ final class HotkeyManager {
         AXUIElementGetPid(current, &pid)
         guard pid > 0 else { return nil }
 
-        return (current, pid)
+        return (current, pid, hitRole)
     }
 
     private func getTitleBarFrame(windowElement: AXUIElement) -> CGRect? {

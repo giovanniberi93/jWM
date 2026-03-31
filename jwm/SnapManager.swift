@@ -75,6 +75,7 @@ final class SnapManager {
         draggedWindowPID = pid
         initialWindowOrigin = origin
         mouseDownLocation = screenPoint
+        logger.info("snap: mouseDown app=\(app.localizedName ?? bundleID) origin=\(origin) cursor=\(screenPoint)")
     }
 
     private func handleMouseDragged(_ event: NSEvent) {
@@ -90,12 +91,16 @@ final class SnapManager {
             let dy = abs(cursorFlipped.y - mouseDown.y)
             guard dx > cursorMoveThreshold || dy > cursorMoveThreshold else { return }
 
-            // Verify the window actually moved (not just a click-drag on a button)
+            // Verify the window actually moved (not just a focus-triggered origin adjustment)
             guard let currentOrigin = getWindowOrigin(pid: pid),
                   let initialOrigin = initialWindowOrigin else { return }
-            if currentOrigin.x == initialOrigin.x && currentOrigin.y == initialOrigin.y {
+            let originDx = abs(currentOrigin.x - initialOrigin.x)
+            let originDy = abs(currentOrigin.y - initialOrigin.y)
+            guard originDx > cursorMoveThreshold || originDy > cursorMoveThreshold else {
                 return
             }
+            let appName = NSRunningApplication(processIdentifier: pid)?.localizedName ?? "pid=\(pid)"
+            logger.info("snap: DRAG STARTED app=\(appName) initialOrigin=\(initialOrigin) currentOrigin=\(currentOrigin) cursor=\(cursorFlipped)")
             windowIsMoving = true
         }
 
@@ -129,7 +134,7 @@ final class SnapManager {
               let pid = draggedWindowPID,
               let app = NSRunningApplication(processIdentifier: pid) else { return }
 
-        logger.info("Snap: dragged \(app.localizedName ?? "unknown") to \(edge)")
+        logger.info("snap: TILING app=\(app.localizedName ?? "unknown") edge=\(edge) cursor=\(NSEvent.mouseLocation.screenFlipped)")
         WindowTiler.tile(edge, app: app)
     }
 
