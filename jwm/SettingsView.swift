@@ -6,6 +6,8 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
+    @State private var macOSTilingEnabled = Self.isMacOSTilingEnabled()
+
     var body: some View {
         Form {
             Section("General") {
@@ -22,6 +24,21 @@ struct SettingsView: View {
                             launchAtLogin = SMAppService.mainApp.status == .enabled
                         }
                     }
+
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text("macOS drag&drop tiling")
+                        Text(macOSTilingEnabled
+                             ? "Should be disabled — conflicts with jWM's drag-to-edge snapping"
+                             : "Disabled — no conflict with jWM")
+                            .font(.caption)
+                            .foregroundStyle(macOSTilingEnabled ? .orange : .secondary)
+                    }
+                    Spacer()
+                    Button("Open Settings") {
+                        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Desktop-Settings.extension")!)
+                    }
+                }
             }
             Section("App Bindings") {
                 ForEach(0...9, id: \.self) { slot in
@@ -31,6 +48,23 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 480, height: 650)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            macOSTilingEnabled = Self.isMacOSTilingEnabled()
+        }
+    }
+
+    private static func isMacOSTilingEnabled() -> Bool {
+        let task = Process()
+        task.launchPath = "/usr/bin/defaults"
+        task.arguments = ["read", "com.apple.WindowManager", "EnableTilingByEdgeDrag"]
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.standardError = FileHandle.nullDevice
+        task.launch()
+        task.waitUntilExit()
+        let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Default is enabled; only disabled when explicitly set to 0
+        return output != "0"
     }
 }
 

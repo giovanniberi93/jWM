@@ -9,6 +9,7 @@ final class SnapManager {
     private var mouseDownLocation: CGPoint?
     private var windowIsMoving = false
     private var currentEdge: TilePosition?
+    private lazy var overlay = SnapOverlayWindow()
 
     private let edgeMargin: CGFloat = 5.0
     private let cursorMoveThreshold: CGFloat = 10.0
@@ -99,11 +100,29 @@ final class SnapManager {
         }
 
         // Check cursor proximity to screen edges
-        currentEdge = edgeForCursor(cursor)
+        let newEdge = edgeForCursor(cursor)
+        if newEdge != currentEdge {
+            currentEdge = newEdge
+            if let edge = newEdge, let screen = NSScreen.main {
+                let rect = WindowTiler.rectForPosition(edge, frame: screen.visibleFrame, screenFull: screen.frame)
+                // rectForPosition returns CG coords (top-left origin), convert to AppKit (bottom-left)
+                let appKitRect = NSRect(
+                    x: rect.origin.x,
+                    y: screen.frame.height - rect.origin.y - rect.height,
+                    width: rect.width,
+                    height: rect.height
+                )
+                overlay.show(at: appKitRect)
+            } else {
+                overlay.hide()
+            }
+        }
     }
 
     private func handleMouseUp(_ event: NSEvent) {
         defer { resetState() }
+
+        overlay.hide()
 
         guard windowIsMoving,
               let edge = currentEdge,

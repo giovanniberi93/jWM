@@ -83,7 +83,7 @@ enum WindowTiler {
         }
     }
 
-    private static func rectForPosition(_ position: TilePosition, frame: NSRect, screenFull: NSRect) -> CGRect {
+    static func rectForPosition(_ position: TilePosition, frame: NSRect, screenFull: NSRect) -> CGRect {
         let targetRect: CGRect
         switch position {
         case .left:
