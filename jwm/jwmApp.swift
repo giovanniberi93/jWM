@@ -22,7 +22,7 @@ struct jwmApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("jwm", systemImage: "rectangle.3.group") {
+        MenuBarExtra("jwm", image: "MenuBarIcon") {
             Button("Settings...") {
                 SettingsWindowController.shared.show()
             }

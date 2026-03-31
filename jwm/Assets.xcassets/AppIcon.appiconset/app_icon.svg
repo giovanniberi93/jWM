@@ -1,0 +1,30 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5B9BF2"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+
+  <!-- macOS-style rounded rect background -->
+  <rect width="1024" height="1024" rx="228" ry="228" fill="url(#bg)"/>
+
+  <!--
+    Motion-blur rectangle icon, scaled up from the 22x18 menu bar icon.
+    The icon is centered in the 1024x1024 canvas.
+    Scale factor ~36x, offset to center: x+220, y+190
+  -->
+  <g transform="translate(220, 190) scale(36)">
+    <!-- Motion blur bands, right edge follows rectangle's left outer stroke edge -->
+    <path d="M 10,0.3 A 2.7,2.7 0 0,0 7.3,3 L 7.3,15 A 2.7,2.7 0 0,0 10,17.7 L 0.5,17.7 L 0.5,0.3 Z"
+          fill="white" opacity="0.12"/>
+    <path d="M 10,0.3 A 2.7,2.7 0 0,0 7.3,3 L 7.3,15 A 2.7,2.7 0 0,0 10,17.7 L 2.5,17.7 L 2.5,0.3 Z"
+          fill="white" opacity="0.18"/>
+    <path d="M 10,0.3 A 2.7,2.7 0 0,0 7.3,3 L 7.3,15 A 2.7,2.7 0 0,0 10,17.7 L 4.5,17.7 L 4.5,0.3 Z"
+          fill="white" opacity="0.25"/>
+
+    <!-- Main rectangle -->
+    <rect x="8" y="1" width="9" height="16" rx="2" ry="2"
+          stroke="white" stroke-width="1.4" fill="none"/>
+  </g>
+</svg>

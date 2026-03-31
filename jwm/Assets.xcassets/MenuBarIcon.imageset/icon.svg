@@ -1,0 +1,17 @@
+<svg width="22" height="18" viewBox="0 0 22 18" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Motion blur bands whose right edge follows the rectangle's left outer
+    stroke edge (rounded corners included), so they touch without overlapping.
+    Rectangle path center is x=8, stroke-width=1.4 → outer edge at x=7.3.
+    Corner centers at (10,3) and (10,15), outer radius = 2 + 0.7 = 2.7.
+  -->
+  <path d="M 10,0.3 A 2.7,2.7 0 0,0 7.3,3 L 7.3,15 A 2.7,2.7 0 0,0 10,17.7 L 0.5,17.7 L 0.5,0.3 Z"
+        fill="black" opacity="0.08"/>
+  <path d="M 10,0.3 A 2.7,2.7 0 0,0 7.3,3 L 7.3,15 A 2.7,2.7 0 0,0 10,17.7 L 2.5,17.7 L 2.5,0.3 Z"
+        fill="black" opacity="0.1"/>
+  <path d="M 10,0.3 A 2.7,2.7 0 0,0 7.3,3 L 7.3,15 A 2.7,2.7 0 0,0 10,17.7 L 4.5,17.7 L 4.5,0.3 Z"
+        fill="black" opacity="0.12"/>
+
+  <!-- Main rectangle -->
+  <rect x="8" y="1" width="9" height="16" rx="2" ry="2" stroke="black" stroke-width="1.4" fill="none"/>
+</svg>
