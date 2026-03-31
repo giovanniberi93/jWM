@@ -1,6 +1,6 @@
 # jWM — janzo window manager
 
-A macOS tiling window manager optimized for single-screen usage. Combines app focusing (like Raycast) and window tiling (like Rectangle) into a single key-chord interaction.
+A macOS tiling window manager optimized for single-screen usage. Combines app focusing and window tiling into a single key-chord interaction.
 
 ## Setup
 
@@ -26,11 +26,11 @@ tccutil reset Accessibility giober.jwm
 
 ## Usage
 
-### App focusing: cmd+N
+### App focusing: ⌘+N
 
 Each number key (0-9) is bound to an app in Settings. `cmd+shift+N` activates the alternate binding for that slot.
 
-### Window tiling: hold cmd, press position key
+### Focusing and tiling a different app
 
 After pressing `cmd+N`, keep holding `cmd` and press a position key:
 
@@ -42,7 +42,7 @@ After pressing `cmd+N`, keep holding `cmd` and press a position key:
 
 Release `cmd` without a position key to just focus the app.
 
-### Direct positioning: ctrl+cmd+position
+### Tiling currently focused window
 
 Move the currently focused window without selecting by number:
 
