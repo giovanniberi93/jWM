@@ -104,6 +104,17 @@ enum WindowTiler {
     private static func setWindowPosition(pid: pid_t, rect: CGRect) {
         let appRef = AXUIElementCreateApplication(pid)
 
+        // Some apps (e.g. Spotify/Electron) set AXEnhancedUserInterface=true,
+        // which causes animated window transitions. Temporarily disable it so
+        // the move is instant, then restore. Same approach as Rectangle.
+        let enhancedUIKey = "AXEnhancedUserInterface" as CFString
+        var enhancedUIRef: CFTypeRef?
+        AXUIElementCopyAttributeValue(appRef, enhancedUIKey, &enhancedUIRef)
+        let hadEnhancedUI = (enhancedUIRef as? Bool) == true
+        if hadEnhancedUI {
+            AXUIElementSetAttributeValue(appRef, enhancedUIKey, kCFBooleanFalse)
+        }
+
         // Try focused window first
         var windowRef: CFTypeRef?
         var result = AXUIElementCopyAttributeValue(appRef, kAXFocusedWindowAttribute as CFString, &windowRef)
@@ -118,7 +129,6 @@ enum WindowTiler {
                 windowRef = first
             } else {
                 logger.info(" kAXWindows also failed (\(result.rawValue))")
-                // Log available attributes for debugging
                 var names: CFArray?
                 if AXUIElementCopyAttributeNames(appRef, &names) == .success, let names = names as? [String] {
                     logger.info(" Available attributes: \(names)")
@@ -131,17 +141,25 @@ enum WindowTiler {
 
         logger.info(" Setting window to \(rect.debugDescription)")
 
-        // Set position first, then size
+        // Set size → position → size. Setting size first avoids macOS clamping the
+        // position to keep the old (larger/smaller) frame on screen. The second size
+        // set corrects any adjustment macOS made after the position change.
         var position = CGPoint(x: rect.origin.x, y: rect.origin.y)
-        if let posValue = AXValueCreate(.cgPoint, &position) {
-            let posResult = AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
-            logger.info(" Set position -> \(posResult.rawValue)")
-        }
-
         var size = CGSize(width: rect.width, height: rect.height)
+
+        if let sizeValue = AXValueCreate(.cgSize, &size) {
+            AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
+        }
+        if let posValue = AXValueCreate(.cgPoint, &position) {
+            AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
+        }
         if let sizeValue = AXValueCreate(.cgSize, &size) {
             let sizeResult = AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
-            logger.info(" Set size -> \(sizeResult.rawValue)")
+            logger.info(" Final size result -> \(sizeResult.rawValue)")
+        }
+
+        if hadEnhancedUI {
+            AXUIElementSetAttributeValue(appRef, enhancedUIKey, kCFBooleanTrue)
         }
     }
 }
