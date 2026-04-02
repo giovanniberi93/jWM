@@ -26,7 +26,7 @@ enum AppFocuser {
     /// Launch an app and wait for its window to appear, then call completion on the main thread.
     static func launchAndWaitForWindow(
         bundleID: String,
-        timeout: TimeInterval = 5.0,
+        timeout: TimeInterval = 10.0,
         completion: @escaping (NSRunningApplication) -> Void
     ) {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return }
