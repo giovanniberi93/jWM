@@ -129,6 +129,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     AppFocuser.launchAndWaitForWindow(bundleID: bundleID) { app in
                         WindowTiler.tile(position, app: app)
                         app.activate()
+                        // Re-tile after a delay in case the app restores its own window state
+                        // Hopefully this doesn't breaks anything.
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            WindowTiler.tile(position, app: app)
+                            
+                        }
                     }
                 }
             }
