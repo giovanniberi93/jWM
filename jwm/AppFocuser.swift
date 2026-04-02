@@ -23,6 +23,37 @@ enum AppFocuser {
         }
     }
 
+    /// Launch an app and wait for its window to appear, then call completion on the main thread.
+    static func launchAndWaitForWindow(
+        bundleID: String,
+        timeout: TimeInterval = 5.0,
+        completion: @escaping (NSRunningApplication) -> Void
+    ) {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: .init())
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let start = Date()
+            while Date().timeIntervalSince(start) < timeout {
+                if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first,
+                   appHasWindows(pid: app.processIdentifier) {
+                    DispatchQueue.main.async {
+                        completion(app)
+                    }
+                    return
+                }
+                Thread.sleep(forTimeInterval: 0.05)
+            }
+            // Timeout: activate without tiling
+            logger.info("Timed out waiting for \(bundleID) window")
+            if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
+                DispatchQueue.main.async {
+                    app.activate()
+                }
+            }
+        }
+    }
+
     /// Check if a process has any on-screen windows via the Accessibility API.
     private static func appHasWindows(pid: pid_t) -> Bool {
         let appRef = AXUIElementCreateApplication(pid)

@@ -124,8 +124,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     WindowTiler.tile(position, app: app)
                     app.activate()
                 } else {
-                    logger.info("App \(bundleID) not running, launching...")
-                    AppFocuser.focusOrLaunch(bundleID: bundleID)
+                    logger.info("App \(bundleID) not running, launching + tiling...")
+                    AppFocuser.launchAndWaitForWindow(bundleID: bundleID) { app in
+                        WindowTiler.tile(position, app: app)
+                        app.activate()
+                    }
                 }
             }
         )
