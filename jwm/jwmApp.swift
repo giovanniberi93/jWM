@@ -120,11 +120,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     return
                 }
                 logger.info("Tile + focus \(slotKey) -> \(bundleID) -> \(position)")
-                if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
+                if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first,
+                   AppFocuser.appHasWindows(pid: app.processIdentifier) {
                     WindowTiler.tile(position, app: app)
                     app.activate()
                 } else {
-                    logger.info("App \(bundleID) not running, launching + tiling...")
+                    logger.info("App \(bundleID) not running or has no windows, launching + tiling...")
                     AppFocuser.launchAndWaitForWindow(bundleID: bundleID) { app in
                         WindowTiler.tile(position, app: app)
                         app.activate()

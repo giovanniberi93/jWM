@@ -55,7 +55,7 @@ enum AppFocuser {
     }
 
     /// Check if a process has any on-screen windows via the Accessibility API.
-    private static func appHasWindows(pid: pid_t) -> Bool {
+    static func appHasWindows(pid: pid_t) -> Bool {
         let appRef = AXUIElementCreateApplication(pid)
         var windowsRef: CFTypeRef?
         let result = AXUIElementCopyAttributeValue(appRef, kAXWindowsAttribute as CFString, &windowsRef)
