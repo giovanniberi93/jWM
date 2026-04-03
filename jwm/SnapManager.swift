@@ -35,6 +35,18 @@ final class SnapManager {
         logger.info("SnapManager started")
     }
 
+    private var paused = false
+
+    func pause() {
+        paused = true
+        logger.info("Snap manager paused")
+    }
+
+    func resume() {
+        paused = false
+        logger.info("Snap manager resumed")
+    }
+
     func stop() {
         if let monitor = globalMonitor {
             NSEvent.removeMonitor(monitor)
@@ -47,6 +59,7 @@ final class SnapManager {
     }
 
     private func handleEvent(_ event: NSEvent) {
+        guard !paused else { return }
         switch event.type {
         case .leftMouseDown:
             handleMouseDown(event)

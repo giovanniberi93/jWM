@@ -8,6 +8,7 @@ final class HotkeyManager {
     private var onFocus: ((String) -> Void)?
     private var onTile: ((TilePosition) -> Void)?
     private var onFocusTile: ((String, TilePosition) -> Void)?
+    private var paused = false
 
     // Chord state: after cmd+N, waiting for either cmd release (focus only) or position key (tile)
     private var pendingAppKey: String?
@@ -62,7 +63,7 @@ final class HotkeyManager {
             callback: callback,
             userInfo: refcon
         ) else {
-            logger.info(" Failed to create event tap. Grant Accessibility permission in System Settings.")
+            logger.info("Failed to create event tap. Grant Accessibility permission in System Settings.")
             return
         }
 
@@ -70,15 +71,17 @@ final class HotkeyManager {
         self.runLoopSource = CFMachPortCreateRunLoopSource(nil, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
-        logger.info(" Event tap started successfully")
+        logger.info("Event tap started successfully")
     }
 
     private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
-        // Re-enable tap if it gets disabled by the system
+        // Re-enable tap if it gets disabled by the system (but not if we paused intentionally)
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            logger.info(" Event tap was disabled, re-enabling")
-            if let tap = eventTap {
-                CGEvent.tapEnable(tap: tap, enable: true)
+            if !paused {
+                logger.info("Event tap was disabled by system, re-enabling")
+                if let tap = eventTap {
+                    CGEvent.tapEnable(tap: tap, enable: true)
+                }
             }
             return Unmanaged.passRetained(event)
         }
@@ -93,7 +96,7 @@ final class HotkeyManager {
         // cmd released while we have a pending app → focus only
         if type == .flagsChanged, let appKey = pendingAppKey {
             if !flags.contains(.maskCommand) {
-                logger.info(" cmd released, focus only: \(appKey)")
+                logger.info("cmd released, focus only: \(appKey)")
                 pendingAppKey = nil
                 onFocus?(appKey)
             }
@@ -111,7 +114,7 @@ final class HotkeyManager {
         // If we have a pending app and cmd is still held, check for position key
         if let appKey = pendingAppKey, hasCmd {
             if let position = keyCodeToPosition[keyCode] {
-                logger.info(" Chord complete: \(appKey) -> \(position)")
+                logger.info("Chord complete: \(appKey) -> \(position)")
                 pendingAppKey = nil
                 onFocusTile?(appKey, position)
                 return nil
@@ -119,19 +122,19 @@ final class HotkeyManager {
             // Another cmd+N while holding cmd → switch to new app
             if let appNumber = keyCodeToAppNumber[keyCode] {
                 let newAppKey = hasShift ? "shiftApp\(appNumber)" : "app\(appNumber)"
-                logger.info(" Switching pending app from \(appKey) to \(newAppKey)")
+                logger.info("Switching pending app from \(appKey) to \(newAppKey)")
                 pendingAppKey = newAppKey
                 return nil
             }
             // Any other key with cmd held → cancel chord, pass through
-            logger.info(" Chord cancelled by other key")
+            logger.info("Chord cancelled by other key")
             pendingAppKey = nil
         }
 
         // ctrl+cmd+h/l/j → tile current window
         if hasCmd && hasCtrl && !hasAlt {
             if let position = keyCodeToPosition[keyCode] {
-                logger.info(" Tile current window -> \(position)")
+                logger.info("Tile current window -> \(position)")
                 onTile?(position)
                 return nil
             }
@@ -141,7 +144,7 @@ final class HotkeyManager {
         if hasCmd && !hasCtrl && !hasAlt {
             if let appNumber = keyCodeToAppNumber[keyCode] {
                 let appKey = hasShift ? "shiftApp\(appNumber)" : "app\(appNumber)"
-                logger.info(" \(appKey) triggered, holding for position key...")
+                logger.info("\(appKey) triggered, holding for position key...")
                 pendingAppKey = appKey
                 return nil
             }
@@ -274,6 +277,22 @@ final class HotkeyManager {
             }
         }
         return nil
+    }
+
+    func pause() {
+        paused = true
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            logger.info("Event tap paused")
+        }
+    }
+
+    func resume() {
+        paused = false
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: true)
+            logger.info("Event tap resumed")
+        }
     }
 
     func stop() {

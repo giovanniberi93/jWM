@@ -5,15 +5,22 @@ let logger = DualLogger()
 
 struct DualLogger {
     private let osLog = Logger(subsystem: "giober.jwm", category: "general")
+    private let formatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss.SSS"
+        return f
+    }()
+
+    private var timestamp: String { formatter.string(from: Date()) }
 
     func info(_ message: String) {
         osLog.info("\(message)")
-        print("jwm: \(message)")
+        print("[\(timestamp)] jwm: \(message)")
     }
 
     func error(_ message: String) {
         osLog.error("\(message)")
-        print("jwm: ERROR: \(message)")
+        print("[\(timestamp)] jwm: ERROR: \(message)")
     }
 }
 
@@ -37,11 +44,17 @@ struct jwmApp: App {
 }
 
 /// Manages a standalone settings window for the menu bar app.
-final class SettingsWindowController {
+/// Pauses the global event tap while the window is open to avoid lag in system panels.
+final class SettingsWindowController: NSObject, NSWindowDelegate {
     static let shared = SettingsWindowController()
     private var window: NSWindow?
+    weak var hotkeyManager: HotkeyManager?
+    weak var snapManager: SnapManager?
 
     func show() {
+        hotkeyManager?.pause()
+        snapManager?.pause()
+
         if let window = window {
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
@@ -58,9 +71,15 @@ final class SettingsWindowController {
         window.contentView = NSHostingView(rootView: SettingsView())
         window.center()
         window.isReleasedWhenClosed = false
+        window.delegate = self
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         self.window = window
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        hotkeyManager?.resume()
+        snapManager?.resume()
     }
 }
 
@@ -77,6 +96,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         NSApp.setActivationPolicy(.accessory)
+        SettingsWindowController.shared.hotkeyManager = hotkeyManager
+        SettingsWindowController.shared.snapManager = snapManager
 
         if AXIsProcessTrusted() {
             logger.info("Accessibility trusted, starting hotkeys")
