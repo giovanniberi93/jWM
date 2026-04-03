@@ -182,8 +182,7 @@ enum WindowTiler {
             AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
         }
         if let sizeValue = AXValueCreate(.cgSize, &size) {
-            let sizeResult = AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
-            logger.info(" Final size result -> \(sizeResult.rawValue)")
+            AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
         }
 
         if hadEnhancedUI {

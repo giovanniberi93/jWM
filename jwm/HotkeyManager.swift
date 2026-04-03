@@ -5,12 +5,12 @@ import Carbon.HIToolbox
 final class HotkeyManager {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
-    private var slotHandler: ((String) -> Void)?
-    private var tileHandler: ((TilePosition) -> Void)?
-    private var slotTileHandler: ((String, TilePosition) -> Void)?
+    private var onFocus: ((String) -> Void)?
+    private var onTile: ((TilePosition) -> Void)?
+    private var onFocusTile: ((String, TilePosition) -> Void)?
 
     // Chord state: after cmd+N, waiting for either cmd release (focus only) or position key (tile)
-    private var pendingSlotKey: String?
+    private var pendingAppKey: String?
 
     private let keyCodeToPosition: [Int64: TilePosition] = [
         Int64(kVK_ANSI_H): .left,
@@ -18,7 +18,7 @@ final class HotkeyManager {
         Int64(kVK_ANSI_J): .fullScreen,
     ]
 
-    private let keyCodeToSlot: [Int64: Int] = [
+    private let keyCodeToAppNumber: [Int64: Int] = [
         Int64(kVK_ANSI_0): 0,
         Int64(kVK_ANSI_1): 1,
         Int64(kVK_ANSI_2): 2,
@@ -32,17 +32,17 @@ final class HotkeyManager {
     ]
 
     /// Start listening for global hotkeys.
-    /// - slotHandler: called with slot key (e.g. "slot1" or "shiftSlot1") on cmd release (focus only).
-    /// - tileHandler: called with position for ctrl+cmd+h/l/j (tile current window).
-    /// - slotTileHandler: called with (slotKey, position) when position key pressed while cmd held (focus + tile).
+    /// - onFocus: called with app key (e.g. "app1" or "shiftApp1") on cmd release (focus only).
+    /// - onTile: called with position for ctrl+cmd+h/l/j (tile current window).
+    /// - onFocusTile: called with (slotKey, position) when position key pressed while cmd held (focus + tile).
     func start(
-        slotHandler: @escaping (String) -> Void,
-        tileHandler: @escaping (TilePosition) -> Void,
-        slotTileHandler: @escaping (String, TilePosition) -> Void
+        onFocus: @escaping (String) -> Void,
+        onTile: @escaping (TilePosition) -> Void,
+        onFocusTile: @escaping (String, TilePosition) -> Void
     ) {
-        self.slotHandler = slotHandler
-        self.tileHandler = tileHandler
-        self.slotTileHandler = slotTileHandler
+        self.onFocus = onFocus
+        self.onTile = onTile
+        self.onFocusTile = onFocusTile
 
         let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
             | (1 << CGEventType.flagsChanged.rawValue)
@@ -90,12 +90,12 @@ final class HotkeyManager {
 
         let flags = event.flags
 
-        // cmd released while we have a pending slot → focus only
-        if type == .flagsChanged, let slotKey = pendingSlotKey {
+        // cmd released while we have a pending app → focus only
+        if type == .flagsChanged, let appKey = pendingAppKey {
             if !flags.contains(.maskCommand) {
-                logger.info(" cmd released, focus only: \(slotKey)")
-                pendingSlotKey = nil
-                slotHandler?(slotKey)
+                logger.info(" cmd released, focus only: \(appKey)")
+                pendingAppKey = nil
+                onFocus?(appKey)
             }
             return Unmanaged.passRetained(event)
         }
@@ -108,41 +108,41 @@ final class HotkeyManager {
         let hasAlt = flags.contains(.maskAlternate)
         let hasShift = flags.contains(.maskShift)
 
-        // If we have a pending slot and cmd is still held, check for position key
-        if let slotKey = pendingSlotKey, hasCmd {
+        // If we have a pending app and cmd is still held, check for position key
+        if let appKey = pendingAppKey, hasCmd {
             if let position = keyCodeToPosition[keyCode] {
-                logger.info(" Chord complete: \(slotKey) -> \(position)")
-                pendingSlotKey = nil
-                slotTileHandler?(slotKey, position)
+                logger.info(" Chord complete: \(appKey) -> \(position)")
+                pendingAppKey = nil
+                onFocusTile?(appKey, position)
                 return nil
             }
-            // Another cmd+N while holding cmd → switch to new slot
-            if let slot = keyCodeToSlot[keyCode] {
-                let newSlotKey = hasShift ? "shiftSlot\(slot)" : "slot\(slot)"
-                logger.info(" Switching pending slot from \(slotKey) to \(newSlotKey)")
-                pendingSlotKey = newSlotKey
+            // Another cmd+N while holding cmd → switch to new app
+            if let appNumber = keyCodeToAppNumber[keyCode] {
+                let newAppKey = hasShift ? "shiftApp\(appNumber)" : "app\(appNumber)"
+                logger.info(" Switching pending app from \(appKey) to \(newAppKey)")
+                pendingAppKey = newAppKey
                 return nil
             }
             // Any other key with cmd held → cancel chord, pass through
             logger.info(" Chord cancelled by other key")
-            pendingSlotKey = nil
+            pendingAppKey = nil
         }
 
         // ctrl+cmd+h/l/j → tile current window
         if hasCmd && hasCtrl && !hasAlt {
             if let position = keyCodeToPosition[keyCode] {
                 logger.info(" Tile current window -> \(position)")
-                tileHandler?(position)
+                onTile?(position)
                 return nil
             }
         }
 
         // cmd+N or cmd+shift+N → start chord (defer focus until cmd release)
         if hasCmd && !hasCtrl && !hasAlt {
-            if let slot = keyCodeToSlot[keyCode] {
-                let slotKey = hasShift ? "shiftSlot\(slot)" : "slot\(slot)"
-                logger.info(" \(slotKey) triggered, holding for position key...")
-                pendingSlotKey = slotKey
+            if let appNumber = keyCodeToAppNumber[keyCode] {
+                let appKey = hasShift ? "shiftApp\(appNumber)" : "app\(appNumber)"
+                logger.info(" \(appKey) triggered, holding for position key...")
+                pendingAppKey = appKey
                 return nil
             }
         }

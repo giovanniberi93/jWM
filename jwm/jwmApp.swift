@@ -100,26 +100,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func startHotkeys() {
         snapManager.start()
         hotkeyManager.start(
-            slotHandler: { slotKey in
-                let bundleID = UserDefaults.standard.string(forKey: "\(slotKey)_bundleID") ?? ""
+            onFocus: { appKey in
+                let bundleID = UserDefaults.standard.string(forKey: "\(appKey)_bundleID") ?? ""
                 guard !bundleID.isEmpty else {
-                    logger.info("\(slotKey) has no app configured")
+                    logger.info("\(appKey) has no app configured")
                     return
                 }
-                logger.info("Focusing \(slotKey) -> \(bundleID)")
+                logger.info("Focusing \(appKey) -> \(bundleID)")
                 AppFocuser.focusOrLaunch(bundleID: bundleID)
             },
-            tileHandler: { position in
+            onTile: { position in
                 logger.info("Tiling current window -> \(position)")
                 WindowTiler.tile(position)
             },
-            slotTileHandler: { slotKey, position in
-                let bundleID = UserDefaults.standard.string(forKey: "\(slotKey)_bundleID") ?? ""
+            onFocusTile: { appKey, position in
+                let bundleID = UserDefaults.standard.string(forKey: "\(appKey)_bundleID") ?? ""
                 guard !bundleID.isEmpty else {
-                    logger.info("\(slotKey) has no app configured")
+                    logger.info("\(appKey) has no app configured")
                     return
                 }
-                logger.info("Tile + focus \(slotKey) -> \(bundleID) -> \(position)")
+                logger.info("Tile + focus \(appKey) -> \(bundleID) -> \(position)")
                 if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first,
                    AppFocuser.appHasWindows(pid: app.processIdentifier) {
                     WindowTiler.tile(position, app: app)

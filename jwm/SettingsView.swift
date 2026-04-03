@@ -88,7 +88,7 @@ struct SlotRow: View {
     init(slot: Int, shifted: Bool) {
         self.slot = slot
         self.shifted = shifted
-        let prefix = shifted ? "shiftSlot\(slot)" : "slot\(slot)"
+        let prefix = shifted ? "shiftApp\(slot)" : "app\(slot)"
         _bundleID = AppStorage(wrappedValue: "", "\(prefix)_bundleID")
         _appName = AppStorage(wrappedValue: "", "\(prefix)_appName")
     }
