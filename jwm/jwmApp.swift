@@ -129,11 +129,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     AppFocuser.launchAndWaitForWindow(bundleID: bundleID) { app in
                         WindowTiler.tile(position, app: app)
                         app.activate()
-                        // Re-tile after a delay in case the app restores its own window state
-                        // Hopefully this doesn't breaks anything.
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            WindowTiler.tile(position, app: app)
-                            
+                        let expectedRect = WindowTiler.getWindowRect(pid: app.processIdentifier)
+                        // Poll briefly: if the app restores its own window state, re-tile
+                        DispatchQueue.global(qos: .userInitiated).async {
+                            let start = Date()
+                            while Date().timeIntervalSince(start) < 0.5 {
+                                Thread.sleep(forTimeInterval: 0.05)
+                                if let current = WindowTiler.getWindowRect(pid: app.processIdentifier),
+                                   current != expectedRect {
+                                    logger.info("Window moved after launch, re-tiling")
+                                    DispatchQueue.main.async {
+                                        WindowTiler.tile(position, app: app)
+                                    }
+                                    return
+                                }
+                            }
                         }
                     }
                 }

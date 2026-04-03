@@ -101,6 +101,34 @@ enum WindowTiler {
         )
     }
 
+    /// Read the current position and size of the frontmost window of the given app.
+    static func getWindowRect(pid: pid_t) -> CGRect? {
+        let appRef = AXUIElementCreateApplication(pid)
+        var windowRef: CFTypeRef?
+        var result = AXUIElementCopyAttributeValue(appRef, kAXFocusedWindowAttribute as CFString, &windowRef)
+        if result != .success {
+            var windowsRef: CFTypeRef?
+            result = AXUIElementCopyAttributeValue(appRef, kAXWindowsAttribute as CFString, &windowsRef)
+            if result == .success, let windows = windowsRef as? [AXUIElement], let first = windows.first {
+                windowRef = first
+            } else {
+                return nil
+            }
+        }
+        let axWindow = windowRef as! AXUIElement
+        var posRef: CFTypeRef?
+        var sizeRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axWindow, kAXPositionAttribute as CFString, &posRef) == .success,
+              AXUIElementCopyAttributeValue(axWindow, kAXSizeAttribute as CFString, &sizeRef) == .success else {
+            return nil
+        }
+        var pos = CGPoint.zero
+        var size = CGSize.zero
+        AXValueGetValue(posRef as! AXValue, .cgPoint, &pos)
+        AXValueGetValue(sizeRef as! AXValue, .cgSize, &size)
+        return CGRect(origin: pos, size: size)
+    }
+
     private static func setWindowPosition(pid: pid_t, rect: CGRect) {
         let appRef = AXUIElementCreateApplication(pid)
 
