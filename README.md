@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="jwm/Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png" width="128" alt="jWM icon">
+</p>
+
 # jWM — janzo window manager
 
 A macOS tiling window manager optimized for single-screen usage. Combines app focusing and window tiling into a single key-chord interaction.
