@@ -48,15 +48,34 @@ SVGEOF
 
 echo "Generated $APP_ICON_SVG"
 
-# --- Step 2: Clear Quick Look cache and render PNGs ---
+# --- Step 2: Render SVG to PNG with transparency ---
 
-qlmanage -r cache > /dev/null 2>&1
+RENDERED="$TMP_DIR/app_icon_1024.png"
 
-qlmanage -t -s 1024 -o "$TMP_DIR" "$APP_ICON_SVG" > /dev/null 2>&1
-RENDERED="$TMP_DIR/app_icon.svg.png"
+swift - "$APP_ICON_SVG" "$RENDERED" << 'SWIFTEOF'
+import AppKit
+let args = CommandLine.arguments
+guard args.count == 3,
+      let svgData = try? Data(contentsOf: URL(fileURLWithPath: args[1])),
+      let image = NSImage(data: svgData) else {
+    fputs("Error: failed to load SVG\n", stderr)
+    exit(1)
+}
+let size = NSSize(width: 1024, height: 1024)
+let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 1024, pixelsHigh: 1024,
+                           bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                           isPlanar: false, colorSpaceName: .deviceRGB,
+                           bytesPerRow: 0, bitsPerPixel: 0)!
+NSGraphicsContext.saveGraphicsState()
+NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+image.draw(in: NSRect(origin: .zero, size: size))
+NSGraphicsContext.restoreGraphicsState()
+let png = rep.representation(using: .png, properties: [:])!
+try! png.write(to: URL(fileURLWithPath: args[2]))
+SWIFTEOF
 
 if [ ! -f "$RENDERED" ]; then
-    echo "Error: qlmanage failed to render $APP_ICON_SVG"
+    echo "Error: failed to render $APP_ICON_SVG to PNG"
     exit 1
 fi
 
