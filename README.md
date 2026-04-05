@@ -69,9 +69,10 @@ Tile the currently focused window:
 | `⌃`+`⌘`+`l` | Right half of the screen |
 | `⌃`+`⌘`+`j` | Full screen |
 
-> ***Wait, no screen thirds? Why `h`/`l`/`j`?***
+> ***Wait, no screen thirds, or horizontal halves? Why `h`/`l`/`j`?***
 >
 > I pretty much only use vertical screen halves, so I'm focusing on those now.
+> 
 > `h`/`l`/`j` are vim-like keybindings, they're convenient because they live in the home row of your keyboard.
 ### Focusing and tiling a different app
 
