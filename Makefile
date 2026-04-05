@@ -18,9 +18,10 @@ install: build
 
 .PHONY: reset-accessibility-permissions
 reset-accessibility-permissions:
-	# TCC caches stale code signatures after rebuild, causing Accessibility to silently fail
+	@# TCC caches stale code signatures after rebuild, causing Accessibility to silently fail
 	@if command -v tccutil >/dev/null 2>&1; then \
-		tccutil reset Accessibility giober.jwm; \
+		pkill -x jwm || true; \
+		tccutil reset Accessibility com.giovanniberi93.jwm; \
 	else \
 		echo "WARNING: tccutil not found, skipping TCC reset"; \
 	fi

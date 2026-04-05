@@ -112,6 +112,10 @@ jWM needs Accessibility access to manage windows. macOS will prompt on first lau
 make reset-accessibility-permissions
 ```
 
+## Contributors
+
+- **janzo**
+- **Claude** <img src="https://media.tenor.com/WvYJnr85GLoAAAAi/cl aude-claude-code.gif" width="20" />
 
 ## License
 

@@ -4,7 +4,7 @@ import os
 let logger = DualLogger()
 
 struct DualLogger {
-    private let osLog = Logger(subsystem: "giober.jwm", category: "general")
+    private let osLog = Logger(subsystem: "com.giovanniberi93.jwm", category: "general")
     private let formatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "HH:mm:ss.SSS"

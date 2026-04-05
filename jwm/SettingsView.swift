@@ -27,7 +27,7 @@ struct SettingsView: View {
 
                 HStack {
                     VStack(alignment: .leading) {
-                        Text("macOS drag&drop tiling")
+                        Text("MacOS tiling on dragging to left/right edge")
                         Text(macOSTilingEnabled
                              ? "⚠️ Should be disabled — conflicts with jWM's drag-to-edge snapping"
                              : "✅ Already disabled — no conflict with jWM")
