@@ -10,7 +10,7 @@
   <tr>
     <th>App Focusing<br><code>⌘</code> + <code>&lt;N&gt;</code></th>
     <th>Window Tiling<br><code>⌘</code> + <code>⌃</code> + <code>h</code>/<code>j</code>/<code>l</code><br>(or mouse)</th>
-    <th>✨ App Focusing + Window Tiling ✨<br><code>⌘</code> + <code>⌃</code> + <code>&lt;N&gt;</code></th>
+    <th>✨ App Focusing +<br>Window Tiling ✨<br><code>⌘</code> + <code>⌃</code> + <code>&lt;N&gt;</code></th>
   </tr>
   <tr>
     <td>
