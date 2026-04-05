@@ -3,7 +3,6 @@
   <h2 align="center">jWM — janzo's Window Manager</h2>
 </p>
 
-
 <p align="center">A simple tiling window manager for MacOS.</p>
 <p align="center">It combines app focusing and window tiling into a single key-chord interaction.</p>
 
@@ -11,7 +10,7 @@
   <tr>
     <th>App Focusing<br><code>⌘</code> + <code>&lt;N&gt;</code></th>
     <th>Window Tiling<br><code>⌘</code> + <code>⌃</code> + <code>h</code>/<code>j</code>/<code>l</code></th>
-    <th>App Focus + Window Tiling<br><code>⌘</code> + <code>⌃</code> + <code>&lt;N&gt;</code></th>
+    <th>✨ App Focusing  + Window Tiling ✨<br><code>⌘</code> + <code>⌃</code> + <code>&lt;N&gt;</code></th>
   </tr>
   <tr>
     <td>
@@ -34,9 +33,13 @@ That worked, but I came to dislike having to always perform two separate operati
 
 ## Requirements
 
-[Xcode](https://xcodereleases.com/) to build the application. At the moment, there are no pre-built binaries available.
+[Xcode](https://xcodereleases.com/) to build the application.
 
 The application was developed using [Xcode 26.3](https://developer.apple.com/services-account/download?path=/Developer_Tools/Xcode_26.3/Xcode_26.3_Universal.xip) on macOS Tahoe 26.3.1
+
+> ***Wait, no pre-built binaries?***
+>
+> No, there's currently only 1 jWM user so it doesn't feel necessary for now.
 
 ## Installation
 
@@ -46,9 +49,15 @@ Run `make dev` in the repo root to build and run the application without install
 
 ## Usage
 
-### App focusing: `⌘`+`<N>`
+### App focusing: `⌘`+`<N>`, `⌘`+`⇧`+`<N>`
 
-Each number key (0-9) can be bound to an app in jWM settings, in the menu bar. `⌘`+`⇧`+`<N>` activates the alternate binding for that slot. For example, you could use `⌘`+`3` for Chrome, and `⌘`+`⇧`+`3` for Safari.
+In jWM settings in the menu bar, each number key (0-9) can be bound to two apps:
+- main app binding: `⌘`+`<N>`
+- alternate app binding: `⌘`+`⇧`+`<N>`
+
+For example, you could use `⌘`+`3` for Chrome, and `⌘`+`⇧`+`3` for Safari.
+
+The app bindings can then be used to focus (or launch) the corresponding apps.
 
 ### Tiling currently focused window
 
@@ -60,9 +69,13 @@ Tile the currently focused window:
 | `⌃`+`⌘`+`l` | Right half of the screen |
 | `⌃`+`⌘`+`j` | Full screen |
 
+> ***Wait, no screen thirds? Why `h`/`l`/`j`?***
+>
+> I pretty much only use vertical screen halves, so I'm focusing on those now.
+> `h`/`l`/`j` are vim-like keybindings, they're convenient because they live in the home row of your keyboard.
 ### Focusing and tiling a different app
 
-After pressing `⌘`+`<N>`, keep holding `⌘` and press a position key to tile the window of the selected app:
+After pressing `⌘`+`<N>` or `⌘`+`⇧`+`<N>`, keep holding `⌘` and press a position key to tile the window of the selected app:
 
 | Key | Position |
 |-----|----------|
@@ -102,4 +115,3 @@ make reset-accessibility-permissions
 ## License
 
 Do whatever you want with jWM.
-
