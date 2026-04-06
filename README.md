@@ -76,7 +76,7 @@ Tile the currently focused window:
 > `h`/`l`/`j` are vim-like keybindings, they're convenient because they live in the home row of your keyboard.
 ### Focusing and tiling a different app
 
-After pressing `⌘`+`<N>` or `⌘`+`⇧`+`<N>`, keep holding `⌘` and press a position key to tile the window of the selected app:
+After pressing `⌘`+`<N>` or `⌘`+`⇧`+`<N>` to select an app, keep holding `⌘` and press a position key to tile the window of the selected app:
 
 | Key | Position |
 |-----|----------|
