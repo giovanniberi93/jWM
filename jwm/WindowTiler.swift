@@ -22,6 +22,19 @@ struct SlotState {
     var left: pid_t?
     var right: pid_t?
     var fullScreen: pid_t?
+
+    /// Clear any slots holding PIDs of apps that are no longer running.
+    mutating func purgeDeadPids() {
+        if let pid = left, NSRunningApplication(processIdentifier: pid) == nil {
+            left = nil
+        }
+        if let pid = right, NSRunningApplication(processIdentifier: pid) == nil {
+            right = nil
+        }
+        if let pid = fullScreen, NSRunningApplication(processIdentifier: pid) == nil {
+            fullScreen = nil
+        }
+    }
 }
 
 enum WindowTiler {
@@ -37,32 +50,42 @@ enum WindowTiler {
             return
         }
         logger.info("Tiling \(targetApp.localizedName ?? "unknown") to \(position)")
+        slots.purgeDeadPids()
 
         if position == .nextScreen {
             moveToNextScreen(app: targetApp)
             return
         }
 
+        let screens = NSScreen.screens
         let screen = screenForApp(targetApp) ?? NSScreen.main
         guard let screen = screen else {
             logger.info("No screen found")
             return
         }
+        let screenIndex = screens.firstIndex(of: screen) ?? -1
+        logger.info("Target app is on screen \(screenIndex) (frame: \(screen.frame))")
+
         // visibleFrame excludes the menu bar and Dock
         let frame = screen.visibleFrame
         // CG coordinates use the primary screen's top-left as origin, so we always
         // need the primary screen's height for the AppKit→CG y-flip, even when
         // tiling on a secondary screen.
-        let primaryHeight = NSScreen.screens[0].frame.height
+        let primaryHeight = screens[0].frame.height
         let cgRect = rectForPosition(position, frame: frame, primaryHeight: primaryHeight)
 
         let pid = targetApp.processIdentifier
 
-        // Displace full-screen app to the opposite half if we're tiling to a half
+        // Displace full-screen app to the opposite half if we're tiling to a half,
+        // but only if both apps are on the same screen.
         if position == .left || position == .right {
-            if let fullPid = slots.fullScreen, fullPid != pid {
+            if let fullPid = slots.fullScreen, fullPid != pid,
+               let displacedApp = NSRunningApplication(processIdentifier: fullPid),
+               let displacedScreen = screenForApp(displacedApp),
+               displacedScreen == screen {
                 let oppositePosition: TilePosition = (position == .left) ? .right : .left
-                logger.info("Displacing full-screen app (pid \(fullPid)) to \(oppositePosition)")
+                let displacedScreenIndex = screens.firstIndex(of: displacedScreen) ?? -1
+                logger.info("Displacing full-screen app (pid \(fullPid)) to \(oppositePosition) on screen \(displacedScreenIndex)")
                 let oppositeRect = rectForPosition(oppositePosition, frame: frame, primaryHeight: primaryHeight)
                 setWindowPosition(pid: fullPid, rect: oppositeRect)
                 // Update slots for the displaced app
@@ -144,6 +167,24 @@ enum WindowTiler {
         return CGRect(origin: pos, size: size)
     }
 
+    /// Poll briefly and re-tile if the app restores its own window state.
+    /// Some apps (especially Electron) process AX changes asynchronously.
+    static func guardPosition(pid: pid_t, retile: @escaping () -> Void) {
+        let expectedRect = getWindowRect(pid: pid)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let start = Date()
+            while Date().timeIntervalSince(start) < 0.5 {
+                Thread.sleep(forTimeInterval: 0.05)
+                if let current = getWindowRect(pid: pid),
+                   current != expectedRect {
+                    logger.info("Window drifted after tiling, re-applying")
+                    DispatchQueue.main.async { retile() }
+                    return
+                }
+            }
+        }
+    }
+
     /// Find which screen the given app's window is on.
     /// Returns nil if the window rect can't be read or no screen contains it.
     private static func screenForApp(_ app: NSRunningApplication) -> NSScreen? {
@@ -185,7 +226,8 @@ enum WindowTiler {
         // Cross-screen moves need position first (to land on the target screen),
         // then size. The normal size→position→size order causes macOS to clamp
         // the size against the original screen before the move happens.
-        setWindowPosition(pid: app.processIdentifier, rect: cgRect, positionFirst: true)
+        let pid = app.processIdentifier
+        setWindowPosition(pid: pid, rect: cgRect, positionFirst: true)
     }
 
     private static func setWindowPosition(pid: pid_t, rect: CGRect, positionFirst: Bool = false) {
