@@ -43,8 +43,9 @@ enum WindowTiler {
             return
         }
 
-        guard let screen = NSScreen.main else {
-            logger.info("No main screen found")
+        let screen = screenForApp(targetApp) ?? NSScreen.main
+        guard let screen = screen else {
+            logger.info("No screen found")
             return
         }
         // visibleFrame excludes the menu bar and Dock
@@ -143,6 +144,20 @@ enum WindowTiler {
         return CGRect(origin: pos, size: size)
     }
 
+    /// Find which screen the given app's window is on.
+    /// Returns nil if the window rect can't be read or no screen contains it.
+    private static func screenForApp(_ app: NSRunningApplication) -> NSScreen? {
+        guard let windowRect = getWindowRect(pid: app.processIdentifier) else { return nil }
+        let primaryHeight = NSScreen.screens[0].frame.height
+        // Window rect is in CG coordinates (top-left origin). Convert center to
+        // AppKit coordinates (bottom-left origin) to match NSScreen.frame.
+        let windowCenter = CGPoint(
+            x: windowRect.midX,
+            y: primaryHeight - windowRect.midY
+        )
+        return NSScreen.screens.first { $0.frame.contains(windowCenter) }
+    }
+
     /// Move the given app's window to the next screen, tiled full screen.
     /// Does nothing if there is only one screen (or mirrored displays).
     private static func moveToNextScreen(app: NSRunningApplication) {
@@ -152,36 +167,14 @@ enum WindowTiler {
             return
         }
 
-        let pid = app.processIdentifier
-
-        // Find which screen the window is currently on
-        guard let windowRect = getWindowRect(pid: pid) else {
-            logger.info("moveToNextScreen: can't read window rect")
-            return
-        }
-
-        // Window rect is in CG coordinates (top-left origin). Convert to NSScreen coordinates
-        // (bottom-left origin) to match NSScreen.frame.
-        let primaryHeight = NSScreen.screens[0].frame.height
-        let windowCenter = CGPoint(
-            x: windowRect.midX,
-            y: primaryHeight - windowRect.midY
-        )
-
-        // Find the screen containing the window center
-        var currentIndex = 0
-        for (i, screen) in screens.enumerated() {
-            if screen.frame.contains(windowCenter) {
-                currentIndex = i
-                break
-            }
-        }
-
+        let currentScreen = screenForApp(app)
+        let currentIndex = currentScreen.flatMap { s in screens.firstIndex(of: s) } ?? 0
         let nextIndex = (currentIndex + 1) % screens.count
         let targetScreen = screens[nextIndex]
         logger.info("moveToNextScreen: moving \(app.localizedName ?? "unknown") from screen \(currentIndex) to \(nextIndex)")
 
         let frame = targetScreen.visibleFrame
+        let primaryHeight = NSScreen.screens[0].frame.height
         let cgRect = CGRect(
             x: frame.origin.x,
             y: primaryHeight - frame.origin.y - frame.height,
@@ -192,7 +185,7 @@ enum WindowTiler {
         // Cross-screen moves need position first (to land on the target screen),
         // then size. The normal size→position→size order causes macOS to clamp
         // the size against the original screen before the move happens.
-        setWindowPosition(pid: pid, rect: cgRect, positionFirst: true)
+        setWindowPosition(pid: app.processIdentifier, rect: cgRect, positionFirst: true)
     }
 
     private static func setWindowPosition(pid: pid_t, rect: CGRect, positionFirst: Bool = false) {
