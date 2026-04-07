@@ -9,8 +9,8 @@
 <table>
   <tr>
     <th>App Focusing<br><code>⌘</code> + <code>&lt;N&gt;</code></th>
-    <th>Window Tiling<br><code>⌘</code> + <code>⌃</code> + <code>h</code>/<code>j</code>/<code>l</code><br>(or mouse)</th>
-    <th>✨ App Focusing +<br>Window Tiling ✨<br><code>⌘</code> + <code>&lt;N&gt;</code> + <code>h</code>/<code>j</code>/<code>l</code></th>
+    <th>Window Tiling<br><code>⌘</code> + <code>⌃</code> + <code>h</code>/<code>j</code>/<code>k</code>/<code>l</code><br>(or mouse)</th>
+    <th>✨ App Focusing +<br>Window Tiling ✨<br><code>⌘</code> + <code>&lt;N&gt;</code> + <code>h</code>/<code>j</code>/<code>k</code>/<code>l</code></th>
   </tr>
   <tr>
     <td>
@@ -68,12 +68,13 @@ Tile the currently focused window:
 | `⌃`+`⌘`+`h` | Left half of the screen |
 | `⌃`+`⌘`+`l` | Right half of the screen |
 | `⌃`+`⌘`+`j` | Full screen |
+| `⌃`+`⌘`+`k` | Move to next screen (fullscreen) |
 
-> ***Wait, no screen thirds, or horizontal halves? Why `h`/`l`/`j`?***
+> ***Wait, no screen thirds, or horizontal halves? Why `h`/`l`/`j`/`k`?***
 >
 > I pretty much only use vertical screen halves, so I'm focusing on those now.
 > 
-> `h`/`l`/`j` are vim-like keybindings, they're convenient because they live in the home row of your keyboard.
+> `h`/`l`/`j`/`k` are vim-like keybindings, they're convenient because they live in the home row of your keyboard.
 ### Focusing and tiling a different app
 
 After pressing `⌘`+`<N>` or `⌘`+`⇧`+`<N>` to select an app, keep holding `⌘` and press a position key to tile the window of the selected app:
@@ -83,6 +84,7 @@ After pressing `⌘`+`<N>` or `⌘`+`⇧`+`<N>` to select an app, keep holding `
 | `h` | Left half of the screen |
 | `l` | Right half of the screen |
 | `j` | Full screen |
+| `k` | Move to next screen (fullscreen) |
 
 ### Mouse support
 

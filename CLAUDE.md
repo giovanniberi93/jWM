@@ -1,92 +1,17 @@
 # jwm — janzo window manager
 
-A macOS tiling window manager optimized for single-screen usage. Combines app focusing (like Raycast) and window tiling (like Rectangle) into a single key-chord interaction.
+A macOS tiling window manager. Combines app focusing (like Raycast) and window tiling (like Rectangle) into a single key-chord interaction. See README.md for user-facing docs.
 
-## Design Decisions
+## Design Constraints
 
-### Core Interaction: cmd+N hold-based chord
-
-The user selects apps with `cmd+N` (e.g. cmd+1 for Terminal). The behaviour depends on whether `cmd` is held or released:
-
-- **`cmd+N`, release `cmd`** → Focus the app, keep current position/size (instant, no delay).
-- **`cmd+N`, keep holding `cmd`, press position key** → Focus the app and tile it. The window is moved to position *before* being brought to front, so it appears already in place.
-
-### Position Keys
-
-| Key | Position |
-|-----|----------|
-| `h` | Left half |
-| `l` | Right half |
-| `j` | Full screen |
-
-Top/bottom halves are out of scope for now. "Full screen" means maximized to the screen's visible area (excluding menu bar and Dock) — NOT macOS native fullscreen which creates a new desktop/space.
-
-### Examples
-
-| Keys | Action |
-|------|--------|
-| `cmd+1`, release cmd | Focus app 1, keep current position |
-| `cmd+1`, hold cmd, `h` | Focus app 1, tile to left half |
-| `cmd+2`, hold cmd, `l` | Focus app 2, tile to right half |
-| `cmd+1`, hold cmd, `h`, `cmd+2`, hold cmd, `l` | App 1 left, app 2 right |
-| `cmd+3`, hold cmd, `j` | Focus app 3, full screen |
-| `cmd+shift+1`, release cmd | Focus alternate app for slot 1 |
-| `cmd+shift+1`, hold cmd, `h` | Focus alternate app for slot 1, tile left |
-
-### App Bindings
-
-Each slot (0-9) has two bindings:
-- `cmd+N` — primary app
-- `cmd+shift+N` — alternate app (e.g. cmd+3 = Chrome, cmd+shift+3 = Firefox)
-
-App-to-key mappings are user-configurable via the Settings UI. Do not hardcode specific app assignments.
-
-### Automatic Window Rearrangement
-
-When tiling a window, the system automatically adjusts other visible windows:
-
-- **Full-screen app + new half tile:** The full-screen app shrinks to the opposite half. E.g., app1 is full screen, `cmd+2, h` → app2 takes left, app1 moves to right.
-- **Half tile replaces existing half tile:** The new app takes the slot, the previous occupant goes behind (no repositioning). E.g., app1 left, app2 right, `cmd+3, l` → app3 takes right, app2 goes behind.
-- **New full-screen app:** Covers everything, other apps remain in their positions behind it.
-
-The mental model is two slots (left, right). Full screen occupies both. Only a full-screen app auto-repositions when displaced; other displaced apps simply lose focus.
-
-### Direct Window Positioning: ctrl+cmd+position
-
-To move the currently focused app without selecting it by number:
-
-| Keys | Action |
-|------|--------|
-| `ctrl+cmd+h` | Current app → left half |
-| `ctrl+cmd+l` | Current app → right half |
-| `ctrl+cmd+j` | Current app → full screen |
-
-No chord/timeout needed — single keystroke, immediate effect. Same h/l/j position keys for consistency.
-
-> **Note:** A timeout-based chord (500ms window) was tried and discarded — it added noticeable delay to plain focus. The hold-based approach eliminates this entirely.
-
-## Scope
-
-### In scope
-- App focusing via global hotkeys (cmd+N)
-- Window tiling (left half, right half, full screen)
-- Single screen only
-- Configurable app bindings (config file or UI)
-- macOS menu bar app
-- Drag-and-drop window tiling (left/right only; full screen via double-click title bar)
-
-### Out of scope (for now)
-- Multi-monitor support
-- Thirds / quarters
-- Saved layouts
-- Top / bottom halves
+- **"Full screen" = maximized, NOT macOS native fullscreen.** It fills the screen's visible area (excluding menu bar and Dock). It must never create a new desktop/space.
+- **Window moves before activation.** When tiling via chord (cmd+N + position), the window is repositioned *before* being brought to front, so it appears already in place.
+- **Hold-based chord, not timeout-based.** A 500ms timeout approach was tried and discarded — it added noticeable delay to plain focus. The current hold-based approach (hold cmd → press position key) eliminates this.
+- **Two-slot mental model for auto-rearrangement.** There are two slots: left and right. Full screen occupies both. When a half tile displaces a full-screen app, the full-screen app shrinks to the opposite half. When a half tile replaces another half tile, the previous occupant simply loses focus (no repositioning). Only full-screen apps auto-reposition when displaced.
+- **Cross-screen moves need position-first ordering.** The normal `setWindowPosition` does size→position→size to avoid macOS clamping. Cross-screen moves must do position→size→position→size instead, because setting the target screen's size while still on the original screen causes macOS to clamp incorrectly.
+- **AppKit→CG coordinate conversion always uses primary screen height.** CG coordinates have origin at the primary screen's top-left. The y-flip formula `cgY = primaryHeight - appKitY - height` must use `NSScreen.screens[0].frame.height`, not the current screen's height, even when tiling on a secondary screen.
+- **Do not hardcode app assignments.** App-to-key mappings are user-configurable via Settings UI and stored in UserDefaults.
 
 ## References
 
 - **[Rectangle](https://rectangleapp.com/)** — similar macOS window manager, useful as reference for solving window management problems. Source available at `/Users/giovanni.beri/workspace/Rectangle` (clone from `https://github.com/rxhanson/rectangle` if needed).
-
-## Tech
-
-- **Platform:** macOS native Swift app
-- **Distribution:** Menu bar app
-- **License:** MIT
