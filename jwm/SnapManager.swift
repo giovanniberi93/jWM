@@ -122,11 +122,12 @@ final class SnapManager {
         if newEdge != currentEdge {
             currentEdge = newEdge
             if let edge = newEdge, let screen = NSScreen.main {
-                let rect = WindowTiler.rectForPosition(edge, frame: screen.visibleFrame, screenFull: screen.frame)
+                let primaryHeight = NSScreen.screens[0].frame.height
+                let rect = WindowTiler.rectForPosition(edge, frame: screen.visibleFrame, primaryHeight: primaryHeight)
                 // rectForPosition returns CG coords (top-left origin), convert to AppKit (bottom-left)
                 let appKitRect = NSRect(
                     x: rect.origin.x,
-                    y: screen.frame.height - rect.origin.y - rect.height,
+                    y: primaryHeight - rect.origin.y - rect.height,
                     width: rect.width,
                     height: rect.height
                 )

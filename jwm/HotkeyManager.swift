@@ -17,6 +17,7 @@ final class HotkeyManager {
         Int64(kVK_ANSI_H): .left,
         Int64(kVK_ANSI_L): .right,
         Int64(kVK_ANSI_J): .fullScreen,
+        Int64(kVK_ANSI_K): .nextScreen,
     ]
 
     private let keyCodeToAppNumber: [Int64: Int] = [
