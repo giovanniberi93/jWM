@@ -223,14 +223,11 @@ enum WindowTiler {
             height: frame.height
         )
 
-        // Cross-screen moves need position first (to land on the target screen),
-        // then size. The normal size→position→size order causes macOS to clamp
-        // the size against the original screen before the move happens.
         let pid = app.processIdentifier
-        setWindowPosition(pid: pid, rect: cgRect, positionFirst: true)
+        setWindowPosition(pid: pid, rect: cgRect)
     }
 
-    private static func setWindowPosition(pid: pid_t, rect: CGRect, positionFirst: Bool = false) {
+    private static func setWindowPosition(pid: pid_t, rect: CGRect) {
         let appRef = AXUIElementCreateApplication(pid)
 
         // Some apps (e.g. Spotify/Electron) set AXEnhancedUserInterface=true,
@@ -273,34 +270,16 @@ enum WindowTiler {
         var position = CGPoint(x: rect.origin.x, y: rect.origin.y)
         var size = CGSize(width: rect.width, height: rect.height)
 
-        if positionFirst {
-            // Cross-screen: position → size → position → size.
-            // Move to the target screen first so macOS clamps size against the right screen.
-            if let posValue = AXValueCreate(.cgPoint, &position) {
-                AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
-            }
-            if let sizeValue = AXValueCreate(.cgSize, &size) {
-                AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
-            }
-            if let posValue = AXValueCreate(.cgPoint, &position) {
-                AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
-            }
-            if let sizeValue = AXValueCreate(.cgSize, &size) {
-                AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
-            }
-        } else {
-            // Same-screen: size → position → size.
-            // Setting size first avoids macOS clamping the position to keep the
-            // old (larger/smaller) frame on screen.
-            if let sizeValue = AXValueCreate(.cgSize, &size) {
-                AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
-            }
-            if let posValue = AXValueCreate(.cgPoint, &position) {
-                AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
-            }
-            if let sizeValue = AXValueCreate(.cgSize, &size) {
-                AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
-            }
+        // size → position → size: setting size first avoids macOS clamping
+        // the position to keep the old (larger/smaller) frame on screen.
+        if let sizeValue = AXValueCreate(.cgSize, &size) {
+            AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
+        }
+        if let posValue = AXValueCreate(.cgPoint, &position) {
+            AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
+        }
+        if let sizeValue = AXValueCreate(.cgSize, &size) {
+            AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
         }
 
         if hadEnhancedUI {
