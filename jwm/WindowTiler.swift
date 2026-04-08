@@ -54,6 +54,10 @@ enum WindowTiler {
 
         if position == .nextScreen {
             moveToNextScreen(app: targetApp)
+            let pid = targetApp.processIdentifier
+            slots.fullScreen = pid
+            if slots.left == pid { slots.left = nil }
+            if slots.right == pid { slots.right = nil }
             return
         }
 
@@ -137,6 +141,22 @@ enum WindowTiler {
             width: targetRect.width,
             height: targetRect.height
         )
+    }
+
+    /// If the given app's window is fullscreen-sized, promote it to slots.fullScreen.
+    static func promoteIfFullScreen(app: NSRunningApplication) {
+        let pid = app.processIdentifier
+        guard let windowRect = getWindowRect(pid: pid) else { return }
+        guard let screen = screenForApp(app) else { return }
+        let primaryHeight = NSScreen.screens[0].frame.height
+        let fullRect = rectForPosition(.fullScreen, frame: screen.visibleFrame, primaryHeight: primaryHeight)
+        let tolerance: CGFloat = 5
+        if abs(windowRect.origin.x - fullRect.origin.x) < tolerance,
+           abs(windowRect.origin.y - fullRect.origin.y) < tolerance,
+           abs(windowRect.width - fullRect.width) < tolerance,
+           abs(windowRect.height - fullRect.height) < tolerance {
+            slots.fullScreen = pid
+        }
     }
 
     /// Read the current position and size of the frontmost window of the given app.
