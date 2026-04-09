@@ -9,6 +9,7 @@ final class SnapManager {
     private var mouseDownLocation: CGPoint?
     private var windowIsMoving = false
     private var currentEdge: TilePosition?
+    private var currentSnapScreen: NSScreen?
     private lazy var overlay = SnapOverlayWindow()
 
     private let edgeMargin: CGFloat = 5.0
@@ -117,10 +118,13 @@ final class SnapManager {
         }
 
         // Check cursor proximity to screen edges
-        let newEdge = edgeForCursor(cursor)
-        if newEdge != currentEdge {
+        let result = edgeForCursor(cursor)
+        let newEdge = result?.0
+        let snapScreen = result?.1
+        if newEdge != currentEdge || snapScreen != currentSnapScreen {
             currentEdge = newEdge
-            if let edge = newEdge, let screen = NSScreen.main {
+            currentSnapScreen = snapScreen
+            if let edge = newEdge, let screen = snapScreen {
                 let primaryHeight = NSScreen.screens[0].frame.height
                 let rect = WindowTiler.rectForPosition(edge, frame: screen.visibleFrame, primaryHeight: primaryHeight)
                 // rectForPosition returns CG coords (top-left origin), convert to AppKit (bottom-left)
@@ -144,24 +148,23 @@ final class SnapManager {
 
         guard windowIsMoving,
               let edge = currentEdge,
+              let screen = currentSnapScreen,
               let pid = draggedWindowPID,
               let app = NSRunningApplication(processIdentifier: pid) else { return }
 
-        logger.info("snap: TILING app=\(app.localizedName ?? "unknown") edge=\(edge) cursor=\(NSEvent.mouseLocation.screenFlipped)")
-        WindowTiler.tile(edge, app: app)
+        logger.info("snap: TILING app=\(app.localizedName ?? "unknown") edge=\(edge) screen=\(NSScreen.screens.firstIndex(of: screen) ?? -1) cursor=\(NSEvent.mouseLocation.screenFlipped)")
+        WindowTiler.tile(edge, app: app, targetScreen: screen)
     }
 
     // MARK: - Edge detection
 
-    private func edgeForCursor(_ cursor: NSPoint) -> TilePosition? {
-        guard let screen = NSScreen.main else { return nil }
+    private func edgeForCursor(_ cursor: NSPoint) -> (TilePosition, NSScreen)? {
+        // Find which screen the cursor is on
+        guard let screen = NSScreen.screens.first(where: { $0.frame.contains(cursor) }) else { return nil }
         let frame = screen.frame
 
-        let nearLeft = cursor.x <= frame.minX + edgeMargin
-        let nearRight = cursor.x >= frame.maxX - edgeMargin
-
-        if nearLeft { return .left }
-        if nearRight { return .right }
+        if cursor.x <= frame.minX + edgeMargin { return (.left, screen) }
+        if cursor.x >= frame.maxX - edgeMargin { return (.right, screen) }
         return nil
     }
 
@@ -226,6 +229,7 @@ final class SnapManager {
         mouseDownLocation = nil
         windowIsMoving = false
         currentEdge = nil
+        currentSnapScreen = nil
     }
 }
 

@@ -62,7 +62,7 @@ enum WindowTiler {
     /// Tile the frontmost window of the given app to the specified position.
     /// If no app is specified, tiles the frontmost window of the currently active app.
     /// Automatically displaces a full-screen app to the opposite half when needed.
-    static func tile(_ position: TilePosition, app: NSRunningApplication? = nil) {
+    static func tile(_ position: TilePosition, app: NSRunningApplication? = nil, targetScreen: NSScreen? = nil) {
         let targetApp = app ?? NSWorkspace.shared.frontmostApplication
         guard let targetApp = targetApp else {
             logger.info("No frontmost app found")
@@ -79,7 +79,7 @@ enum WindowTiler {
         }
 
         let screens = NSScreen.screens
-        let screen = screenForApp(targetApp) ?? NSScreen.main
+        let screen = targetScreen ?? screenForApp(targetApp) ?? NSScreen.main
         guard let screen = screen else {
             logger.info("No screen found")
             return
