@@ -11,6 +11,7 @@ A macOS tiling window manager. Combines app focusing (like Raycast) and window t
 - **Cross-screen moves need position-first ordering.** The normal `setWindowPosition` does size→position→size to avoid macOS clamping. Cross-screen moves must do position→size→position→size instead, because setting the target screen's size while still on the original screen causes macOS to clamp incorrectly.
 - **AppKit→CG coordinate conversion always uses primary screen height.** CG coordinates have origin at the primary screen's top-left. The y-flip formula `cgY = primaryHeight - appKitY - height` must use `NSScreen.screens[0].frame.height`, not the current screen's height, even when tiling on a secondary screen.
 - **Do not hardcode app assignments.** App-to-key mappings are user-configurable via Settings UI and stored in UserDefaults.
+- **Every change must be assessed for multi-screen correctness.** Before considering a change done, verify that it works correctly when multiple screens are connected — coordinate conversions, screen selection, slot tracking, and window positioning must all account for the multi-screen case.
 
 ## References
 
