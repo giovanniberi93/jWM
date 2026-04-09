@@ -127,6 +127,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             queue: .main
         ) { notification in
             guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+            logger.info("App activated: \(app.localizedName ?? app.bundleIdentifier ?? "unknown")")
             WindowTiler.promoteIfFullScreen(app: app)
         }
 

@@ -88,7 +88,6 @@ final class SnapManager {
         draggedWindowPID = pid
         initialWindowOrigin = origin
         mouseDownLocation = screenPoint
-        logger.info("snap: mouseDown app=\(app.localizedName ?? bundleID) origin=\(origin) cursor=\(screenPoint)")
     }
 
     private func handleMouseDragged(_ event: NSEvent) {
