@@ -140,6 +140,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 logger.info("Focusing \(appKey) -> \(bundleID)")
                 AppFocuser.focusOrLaunch(bundleID: bundleID)
+                if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
+                    WindowTiler.promoteIfFullScreen(app: app)
+                }
             },
             onTile: { position in
                 logger.info("Tiling current window -> \(position)")
