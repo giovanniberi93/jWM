@@ -72,11 +72,9 @@ enum WindowTiler {
         slots.purgeDeadPids()
 
         if position == .nextScreen {
-            let pid = targetApp.processIdentifier
-            slots.clearFullScreen(pid: pid)
+            slots.clearFullScreen(pid: targetApp.processIdentifier)
             moveToNextScreen(app: targetApp)
-            // moveToNextScreen tiles fullscreen on the target screen;
-            // the didActivateApplication observer will promote via promoteIfFullScreen
+            promoteIfFullScreen(app: targetApp)
             return
         }
 
@@ -155,13 +153,16 @@ enum WindowTiler {
         let primaryHeight = NSScreen.screens[0].frame.height
         let fullRect = rectForPosition(.fullScreen, frame: screen.visibleFrame, primaryHeight: primaryHeight)
         let tolerance: CGFloat = 5
+        let displayID = screen.displayID
         if abs(windowRect.origin.x - fullRect.origin.x) < tolerance,
            abs(windowRect.origin.y - fullRect.origin.y) < tolerance,
            abs(windowRect.width - fullRect.width) < tolerance,
            abs(windowRect.height - fullRect.height) < tolerance {
-            slots.clearFullScreen(pid: pid)
-            slots.setFullScreen(pid, forDisplay: screen.displayID)
-            logger.info("Promoted \(app.localizedName ?? "pid=\(pid)") to fullScreen slot on display \(screen.displayID)")
+            if slots.fullScreen(forDisplay: displayID) != pid {
+                slots.clearFullScreen(pid: pid)
+                slots.setFullScreen(pid, forDisplay: displayID)
+                logger.info("Promoted \(app.localizedName ?? "pid=\(pid)") to fullScreen slot on display \(displayID)")
+            }
         }
     }
 
@@ -226,7 +227,6 @@ enum WindowTiler {
     }
 
     /// Move the given app's window to the next screen, tiled full screen.
-    /// Does nothing if there is only one screen (or mirrored displays).
     private static func moveToNextScreen(app: NSRunningApplication) {
         let screens = NSScreen.screens
         guard screens.count > 1 else {
