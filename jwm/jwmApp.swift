@@ -120,6 +120,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func startHotkeys() {
         snapManager.start()
+
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+            WindowTiler.promoteIfFullScreen(app: app)
+        }
+
         hotkeyManager.start(
             onFocus: { appKey in
                 let bundleID = UserDefaults.standard.string(forKey: "\(appKey)_bundleID") ?? ""
@@ -129,9 +139,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 logger.info("Focusing \(appKey) -> \(bundleID)")
                 AppFocuser.focusOrLaunch(bundleID: bundleID)
-                if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
-                    WindowTiler.promoteIfFullScreen(app: app)
-                }
             },
             onTile: { position in
                 logger.info("Tiling current window -> \(position)")
