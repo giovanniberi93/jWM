@@ -148,6 +148,76 @@ enum WindowTiler {
         )
     }
 
+    /// If the given app's window occupies a left/right half, displace any
+    /// full-screen app on the same display to the opposite half.
+    /// Called on external activation (Spotlight, Dock, Cmd-Tab) so the
+    /// two-slot model stays consistent even when jwm didn't initiate the focus.
+    /// Match a window rect against the left/right half positions for a given
+    /// screen frame. Returns .left or .right if within tolerance, nil otherwise.
+    static func matchHalfPosition(windowRect: CGRect, frame: NSRect, primaryHeight: CGFloat) -> TilePosition? {
+        let tolerance: CGFloat = 5
+        let leftRect = rectForPosition(.left, frame: frame, primaryHeight: primaryHeight)
+        let rightRect = rectForPosition(.right, frame: frame, primaryHeight: primaryHeight)
+
+        let matchesLeft = abs(windowRect.origin.x - leftRect.origin.x) < tolerance
+            && abs(windowRect.origin.y - leftRect.origin.y) < tolerance
+            && abs(windowRect.width - leftRect.width) < tolerance
+            && abs(windowRect.height - leftRect.height) < tolerance
+        let matchesRight = abs(windowRect.origin.x - rightRect.origin.x) < tolerance
+            && abs(windowRect.origin.y - rightRect.origin.y) < tolerance
+            && abs(windowRect.width - rightRect.width) < tolerance
+            && abs(windowRect.height - rightRect.height) < tolerance
+
+        if matchesLeft { return .left }
+        if matchesRight { return .right }
+        return nil
+    }
+
+    /// Returns true if a displacement actually happened.
+    @discardableResult
+    static func displaceIfHalf(app: NSRunningApplication) -> Bool {
+        let pid = app.processIdentifier
+        guard let windowRect = getWindowRect(pid: pid) else { return false }
+        guard let screen = screenForApp(app) else { return false }
+        let primaryHeight = NSScreen.screens[0].frame.height
+        let displayID = screen.displayID
+        let frame = screen.visibleFrame
+
+        guard let position = matchHalfPosition(windowRect: windowRect, frame: frame, primaryHeight: primaryHeight) else {
+            return false
+        }
+
+        guard let fullPid = slots.fullScreen(forDisplay: displayID),
+              fullPid != pid else { return false }
+
+        let oppositePosition: TilePosition = (position == .left) ? .right : .left
+        let oppositeRect = rectForPosition(oppositePosition, frame: frame, primaryHeight: primaryHeight)
+        logger.info("External activation: displacing full-screen app (pid \(fullPid)) to \(oppositePosition) for \(app.localizedName ?? "unknown")")
+        setWindowPosition(pid: fullPid, rect: oppositeRect)
+        slots.setFullScreen(nil, forDisplay: displayID)
+        return true
+    }
+
+    /// Poll briefly, retrying displaceIfHalf until the app's window settles
+    /// into a half position. For already-running apps this fires on the first
+    /// iteration; for freshly launched apps (e.g. via Spotlight) it retries
+    /// until the window appears.
+    static func guardDisplacementToHalfScreen(app: NSRunningApplication) {
+        let pid = app.processIdentifier
+        DispatchQueue.global(qos: .userInitiated).async {
+            let start = Date()
+            while Date().timeIntervalSince(start) < 0.5 {
+                Thread.sleep(forTimeInterval: 0.05)
+                if NSRunningApplication(processIdentifier: pid) == nil { return }
+                var displaced = false
+                DispatchQueue.main.sync {
+                    displaced = displaceIfHalf(app: app)
+                }
+                if displaced { return }
+            }
+        }
+    }
+
     /// If the given app's window is fullscreen-sized, promote it to slots.fullScreen.
     static func promoteIfFullScreen(app: NSRunningApplication) {
         let pid = app.processIdentifier

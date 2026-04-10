@@ -46,6 +46,67 @@ final class WindowTilerGeometryTests: XCTestCase {
         XCTAssertEqual(rect.origin.y, -360)
     }
 
+    // MARK: - matchHalfPosition
+
+    func testMatchHalfPositionLeft() {
+        let leftRect = WindowTiler.rectForPosition(.left, frame: frame, primaryHeight: primaryHeight)
+        XCTAssertEqual(
+            WindowTiler.matchHalfPosition(windowRect: leftRect, frame: frame, primaryHeight: primaryHeight),
+            .left
+        )
+    }
+
+    func testMatchHalfPositionRight() {
+        let rightRect = WindowTiler.rectForPosition(.right, frame: frame, primaryHeight: primaryHeight)
+        XCTAssertEqual(
+            WindowTiler.matchHalfPosition(windowRect: rightRect, frame: frame, primaryHeight: primaryHeight),
+            .right
+        )
+    }
+
+    func testMatchHalfPositionFullScreenReturnsNil() {
+        let fullRect = WindowTiler.rectForPosition(.fullScreen, frame: frame, primaryHeight: primaryHeight)
+        XCTAssertNil(
+            WindowTiler.matchHalfPosition(windowRect: fullRect, frame: frame, primaryHeight: primaryHeight)
+        )
+    }
+
+    func testMatchHalfPositionArbitraryRectReturnsNil() {
+        let arbitrary = CGRect(x: 100, y: 100, width: 800, height: 600)
+        XCTAssertNil(
+            WindowTiler.matchHalfPosition(windowRect: arbitrary, frame: frame, primaryHeight: primaryHeight)
+        )
+    }
+
+    func testMatchHalfPositionWithinTolerance() {
+        var leftRect = WindowTiler.rectForPosition(.left, frame: frame, primaryHeight: primaryHeight)
+        // Offset by 4px (within 5px tolerance)
+        leftRect.origin.x += 4
+        leftRect.origin.y -= 3
+        XCTAssertEqual(
+            WindowTiler.matchHalfPosition(windowRect: leftRect, frame: frame, primaryHeight: primaryHeight),
+            .left
+        )
+    }
+
+    func testMatchHalfPositionOutsideTolerance() {
+        var leftRect = WindowTiler.rectForPosition(.left, frame: frame, primaryHeight: primaryHeight)
+        // Offset by 6px (outside 5px tolerance)
+        leftRect.origin.x += 6
+        XCTAssertNil(
+            WindowTiler.matchHalfPosition(windowRect: leftRect, frame: frame, primaryHeight: primaryHeight)
+        )
+    }
+
+    func testMatchHalfPositionSecondaryScreen() {
+        let secondaryFrame = NSRect(x: 1920, y: 0, width: 2560, height: 1440)
+        let rightRect = WindowTiler.rectForPosition(.right, frame: secondaryFrame, primaryHeight: primaryHeight)
+        XCTAssertEqual(
+            WindowTiler.matchHalfPosition(windowRect: rightRect, frame: secondaryFrame, primaryHeight: primaryHeight),
+            .right
+        )
+    }
+
     func testLeftAndRightCoverFullWidth() {
         let left = WindowTiler.rectForPosition(.left, frame: frame, primaryHeight: primaryHeight)
         let right = WindowTiler.rectForPosition(.right, frame: frame, primaryHeight: primaryHeight)
