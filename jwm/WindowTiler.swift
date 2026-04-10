@@ -154,22 +154,22 @@ enum WindowTiler {
     /// two-slot model stays consistent even when jwm didn't initiate the focus.
     /// Match a window rect against the left/right half positions for a given
     /// screen frame. Returns .left or .right if within tolerance, nil otherwise.
+    /// Uses tight tolerance on position (20px) and generous tolerance on size
+    /// (15% of expected dimension) to catch apps that restore to roughly-half sizes.
     static func matchHalfPosition(windowRect: CGRect, frame: NSRect, primaryHeight: CGFloat) -> TilePosition? {
-        let tolerance: CGFloat = 5
+        let posTolerance: CGFloat = 20
         let leftRect = rectForPosition(.left, frame: frame, primaryHeight: primaryHeight)
         let rightRect = rectForPosition(.right, frame: frame, primaryHeight: primaryHeight)
 
-        let matchesLeft = abs(windowRect.origin.x - leftRect.origin.x) < tolerance
-            && abs(windowRect.origin.y - leftRect.origin.y) < tolerance
-            && abs(windowRect.width - leftRect.width) < tolerance
-            && abs(windowRect.height - leftRect.height) < tolerance
-        let matchesRight = abs(windowRect.origin.x - rightRect.origin.x) < tolerance
-            && abs(windowRect.origin.y - rightRect.origin.y) < tolerance
-            && abs(windowRect.width - rightRect.width) < tolerance
-            && abs(windowRect.height - rightRect.height) < tolerance
+        func matches(_ expected: CGRect) -> Bool {
+            abs(windowRect.origin.x - expected.origin.x) < posTolerance
+                && abs(windowRect.origin.y - expected.origin.y) < posTolerance
+                && abs(windowRect.width - expected.width) < expected.width * 0.15
+                && abs(windowRect.height - expected.height) < expected.height * 0.15
+        }
 
-        if matchesLeft { return .left }
-        if matchesRight { return .right }
+        if matches(leftRect) { return .left }
+        if matches(rightRect) { return .right }
         return nil
     }
 
@@ -177,18 +177,37 @@ enum WindowTiler {
     @discardableResult
     static func displaceIfHalf(app: NSRunningApplication) -> Bool {
         let pid = app.processIdentifier
-        guard let windowRect = getWindowRect(pid: pid) else { return false }
-        guard let screen = screenForApp(app) else { return false }
+        guard let windowRect = getWindowRect(pid: pid) else {
+            logger.info("displaceIfHalf: no window rect for \(app.localizedName ?? "pid=\(pid)")")
+            return false
+        }
+        guard let screen = screenForApp(app) else {
+            logger.info("displaceIfHalf: no screen for \(app.localizedName ?? "pid=\(pid)")")
+            return false
+        }
         let primaryHeight = NSScreen.screens[0].frame.height
         let displayID = screen.displayID
         let frame = screen.visibleFrame
 
+        let leftRect = rectForPosition(.left, frame: frame, primaryHeight: primaryHeight)
+        let rightRect = rectForPosition(.right, frame: frame, primaryHeight: primaryHeight)
+        logger.info("displaceIfHalf: windowRect=\(windowRect) screen.visibleFrame=\(frame) primaryHeight=\(primaryHeight) displayID=\(displayID)")
+        logger.info("displaceIfHalf: leftRect=\(leftRect) rightRect=\(rightRect)")
+
         guard let position = matchHalfPosition(windowRect: windowRect, frame: frame, primaryHeight: primaryHeight) else {
+            logger.info("displaceIfHalf: no half match for \(app.localizedName ?? "pid=\(pid)")")
             return false
         }
 
+        // Snap the activated app to the exact half position
+        let snapRect = rectForPosition(position, frame: frame, primaryHeight: primaryHeight)
+        if windowRect != snapRect {
+            logger.info("Snapping \(app.localizedName ?? "pid=\(pid)") to exact \(position)")
+            setWindowPosition(pid: pid, rect: snapRect)
+        }
+
         guard let fullPid = slots.fullScreen(forDisplay: displayID),
-              fullPid != pid else { return false }
+              fullPid != pid else { return true }
 
         let oppositePosition: TilePosition = (position == .left) ? .right : .left
         let oppositeRect = rectForPosition(oppositePosition, frame: frame, primaryHeight: primaryHeight)
@@ -198,45 +217,50 @@ enum WindowTiler {
         return true
     }
 
-    /// Poll briefly, retrying displaceIfHalf until the app's window settles
-    /// into a half position. For already-running apps this fires on the first
+    /// Poll briefly, retrying promoteIfFullScreen and displaceIfHalf until the
+    /// app's window settles. For already-running apps this fires on the first
     /// iteration; for freshly launched apps (e.g. via Spotlight) it retries
     /// until the window appears.
-    static func guardDisplacementToHalfScreen(app: NSRunningApplication) {
+    static func guardActivation(app: NSRunningApplication) {
         let pid = app.processIdentifier
         DispatchQueue.global(qos: .userInitiated).async {
             let start = Date()
             while Date().timeIntervalSince(start) < 0.5 {
                 Thread.sleep(forTimeInterval: 0.05)
                 if NSRunningApplication(processIdentifier: pid) == nil { return }
-                var displaced = false
+                var done = false
                 DispatchQueue.main.sync {
-                    displaced = displaceIfHalf(app: app)
+                    if promoteIfFullScreen(app: app) { done = true; return }
+                    if displaceIfHalf(app: app) { done = true; return }
                 }
-                if displaced { return }
+                if done { return }
             }
         }
     }
 
     /// If the given app's window is fullscreen-sized, promote it to slots.fullScreen.
-    static func promoteIfFullScreen(app: NSRunningApplication) {
+    /// Returns true if the app was promoted (or was already in the slot).
+    @discardableResult
+    static func promoteIfFullScreen(app: NSRunningApplication) -> Bool {
         let pid = app.processIdentifier
-        guard let windowRect = getWindowRect(pid: pid) else { return }
-        guard let screen = screenForApp(app) else { return }
+        guard let windowRect = getWindowRect(pid: pid) else { return false }
+        guard let screen = screenForApp(app) else { return false }
         let primaryHeight = NSScreen.screens[0].frame.height
         let fullRect = rectForPosition(.fullScreen, frame: screen.visibleFrame, primaryHeight: primaryHeight)
         let tolerance: CGFloat = 5
         let displayID = screen.displayID
-        if abs(windowRect.origin.x - fullRect.origin.x) < tolerance,
-           abs(windowRect.origin.y - fullRect.origin.y) < tolerance,
-           abs(windowRect.width - fullRect.width) < tolerance,
-           abs(windowRect.height - fullRect.height) < tolerance {
-            if slots.fullScreen(forDisplay: displayID) != pid {
-                slots.clearFullScreen(pid: pid)
-                slots.setFullScreen(pid, forDisplay: displayID)
-                logger.info("Promoted \(app.localizedName ?? "pid=\(pid)") to fullScreen slot on display \(displayID)")
-            }
+        guard abs(windowRect.origin.x - fullRect.origin.x) < tolerance,
+              abs(windowRect.origin.y - fullRect.origin.y) < tolerance,
+              abs(windowRect.width - fullRect.width) < tolerance,
+              abs(windowRect.height - fullRect.height) < tolerance else {
+            return false
         }
+        if slots.fullScreen(forDisplay: displayID) != pid {
+            slots.clearFullScreen(pid: pid)
+            slots.setFullScreen(pid, forDisplay: displayID)
+            logger.info("Promoted \(app.localizedName ?? "pid=\(pid)") to fullScreen slot on display \(displayID)")
+        }
+        return true
     }
 
     /// Read the current position and size of the frontmost window of the given app.

@@ -128,8 +128,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ) { notification in
             guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
             logger.info("App activated: \(app.localizedName ?? app.bundleIdentifier ?? "unknown")")
-            WindowTiler.promoteIfFullScreen(app: app)
-            WindowTiler.guardDisplacementToHalfScreen(app: app)
+            WindowTiler.guardActivation(app: app)
         }
 
         hotkeyManager.start(

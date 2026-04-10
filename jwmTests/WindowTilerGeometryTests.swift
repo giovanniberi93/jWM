@@ -78,21 +78,41 @@ final class WindowTilerGeometryTests: XCTestCase {
         )
     }
 
-    func testMatchHalfPositionWithinTolerance() {
+    func testMatchHalfPositionWithinPositionTolerance() {
         var leftRect = WindowTiler.rectForPosition(.left, frame: frame, primaryHeight: primaryHeight)
-        // Offset by 4px (within 5px tolerance)
-        leftRect.origin.x += 4
-        leftRect.origin.y -= 3
+        // Offset by 15px (within 20px position tolerance)
+        leftRect.origin.x += 15
+        leftRect.origin.y -= 10
         XCTAssertEqual(
             WindowTiler.matchHalfPosition(windowRect: leftRect, frame: frame, primaryHeight: primaryHeight),
             .left
         )
     }
 
-    func testMatchHalfPositionOutsideTolerance() {
+    func testMatchHalfPositionOutsidePositionTolerance() {
         var leftRect = WindowTiler.rectForPosition(.left, frame: frame, primaryHeight: primaryHeight)
-        // Offset by 6px (outside 5px tolerance)
-        leftRect.origin.x += 6
+        // Offset by 25px (outside 20px position tolerance)
+        leftRect.origin.x += 25
+        XCTAssertNil(
+            WindowTiler.matchHalfPosition(windowRect: leftRect, frame: frame, primaryHeight: primaryHeight)
+        )
+    }
+
+    func testMatchHalfPositionWithinSizeTolerance() {
+        // Simulate Calendar-like case: roughly half-screen but not exact.
+        // Left half width is 960, 10% wider = 1056 (within 15%).
+        var leftRect = WindowTiler.rectForPosition(.left, frame: frame, primaryHeight: primaryHeight)
+        leftRect.size.width *= 1.10
+        XCTAssertEqual(
+            WindowTiler.matchHalfPosition(windowRect: leftRect, frame: frame, primaryHeight: primaryHeight),
+            .left
+        )
+    }
+
+    func testMatchHalfPositionOutsideSizeTolerance() {
+        // 20% wider than half-screen (outside 15% tolerance)
+        var leftRect = WindowTiler.rectForPosition(.left, frame: frame, primaryHeight: primaryHeight)
+        leftRect.size.width *= 1.20
         XCTAssertNil(
             WindowTiler.matchHalfPosition(windowRect: leftRect, frame: frame, primaryHeight: primaryHeight)
         )
