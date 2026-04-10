@@ -12,7 +12,7 @@ final class SnapManager {
     private var currentSnapScreen: NSScreen?
     private lazy var overlay = SnapOverlayWindow()
 
-    private let edgeMargin: CGFloat = 5.0
+    private let edgeMargin: CGFloat = 30.0
     private let cursorMoveThreshold: CGFloat = 10.0
 
     private static let ignoredBundleIDs: Set<String> = [
