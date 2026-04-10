@@ -79,7 +79,13 @@ final class SnapManager {
         resetState()
 
         let screenPoint = NSEvent.mouseLocation.screenFlipped
-        guard let (pid, origin) = getWindowInfoUnderCursor(at: screenPoint) else { return }
+        guard let (pid, origin) = getWindowInfoUnderCursor(at: screenPoint) else {
+            // Debug: check what app is under cursor via frontmost
+            if let front = NSWorkspace.shared.frontmostApplication {
+                logger.info("snap: mouseDown missed — frontmost=\(front.localizedName ?? "?") cursor=\(screenPoint)")
+            }
+            return
+        }
 
         // Ignore system processes
         guard let app = NSRunningApplication(processIdentifier: pid),
@@ -177,31 +183,14 @@ final class SnapManager {
         guard AXUIElementCopyElementAtPosition(systemWide, Float(point.x), Float(point.y), &elementRef) == .success,
               let element = elementRef else { return nil }
 
-        // Walk up to the window element
-        var current = element
-        while true {
-            var role: CFTypeRef?
-            AXUIElementCopyAttributeValue(current, kAXRoleAttribute as CFString, &role)
-            if let roleStr = role as? String, roleStr == (kAXWindowRole as String) {
-                break
-            }
-            var parent: CFTypeRef?
-            guard AXUIElementCopyAttributeValue(current, kAXParentAttribute as CFString, &parent) == .success,
-                  let parentElement = parent else { return nil }
-            current = (parentElement as! AXUIElement)
-        }
-
+        // Get PID from whatever element is under the cursor — don't walk the
+        // AX tree, as Electron apps (WhatsApp, Slack) have broken parent chains.
         var pid: pid_t = 0
-        AXUIElementGetPid(current, &pid)
+        AXUIElementGetPid(element, &pid)
         guard pid > 0 else { return nil }
 
-        // Read window position
-        var positionRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(current, kAXPositionAttribute as CFString, &positionRef) == .success else {
-            return nil
-        }
-        var origin = CGPoint.zero
-        AXValueGetValue(positionRef as! AXValue, .cgPoint, &origin)
+        // Read window position via the app's focused/first window
+        guard let origin = getWindowOrigin(pid: pid) else { return nil }
 
         return (pid, origin)
     }
@@ -238,7 +227,7 @@ final class SnapManager {
 extension NSPoint {
     /// Convert from AppKit coordinates (bottom-left origin) to CG/screen coordinates (top-left origin).
     var screenFlipped: CGPoint {
-        guard let screenHeight = NSScreen.main?.frame.height else { return self }
-        return CGPoint(x: x, y: screenHeight - y)
+        guard let primaryHeight = NSScreen.screens.first?.frame.height else { return self }
+        return CGPoint(x: x, y: primaryHeight - y)
     }
 }
