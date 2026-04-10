@@ -31,6 +31,10 @@ uninstall:
 	pkill -x jwm || true
 	rm -rf /Applications/$(APP_NAME).app
 
+.PHONY: test
+test:
+	xcodebuild -project $(PROJECT) -scheme jwmTests -configuration Debug -derivedDataPath $(BUILD_DIR) test
+
 .PHONY: clean
 clean:
 	rm -rf $(BUILD_DIR)
