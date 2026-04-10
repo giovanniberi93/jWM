@@ -72,9 +72,12 @@ enum WindowTiler {
         slots.purgeDeadPids()
 
         if position == .nextScreen {
-            slots.clearFullScreen(pid: targetApp.processIdentifier)
-            moveToNextScreen(app: targetApp)
-            promoteIfFullScreen(app: targetApp)
+            let pid = targetApp.processIdentifier
+            slots.clearFullScreen(pid: pid)
+            if let nextScreen = moveToNextScreen(app: targetApp) {
+                slots.setFullScreen(pid, forDisplay: nextScreen.displayID)
+                logger.info("Set fullScreen slot on display \(nextScreen.displayID) after nextScreen move")
+            }
             return
         }
 
@@ -227,11 +230,13 @@ enum WindowTiler {
     }
 
     /// Move the given app's window to the next screen, tiled full screen.
-    private static func moveToNextScreen(app: NSRunningApplication) {
+    /// Returns the target screen on success, nil if only one screen exists.
+    @discardableResult
+    private static func moveToNextScreen(app: NSRunningApplication) -> NSScreen? {
         let screens = NSScreen.screens
         guard screens.count > 1 else {
             logger.info("moveToNextScreen: only one screen, ignoring")
-            return
+            return nil
         }
 
         let currentScreen = screenForApp(app)
@@ -241,7 +246,7 @@ enum WindowTiler {
         logger.info("moveToNextScreen: moving \(app.localizedName ?? "unknown") from screen \(currentIndex) to \(nextIndex)")
 
         let frame = targetScreen.visibleFrame
-        let primaryHeight = NSScreen.screens[0].frame.height
+        let primaryHeight = screens[0].frame.height
         let cgRect = CGRect(
             x: frame.origin.x,
             y: primaryHeight - frame.origin.y - frame.height,
@@ -250,10 +255,13 @@ enum WindowTiler {
         )
 
         let pid = app.processIdentifier
-        setWindowPosition(pid: pid, rect: cgRect)
+        // Cross-screen moves need position first so macOS evaluates the resize
+        // against the target screen's bounds, not the source screen's.
+        setWindowPosition(pid: pid, rect: cgRect, positionFirst: true)
+        return targetScreen
     }
 
-    private static func setWindowPosition(pid: pid_t, rect: CGRect) {
+    private static func setWindowPosition(pid: pid_t, rect: CGRect, positionFirst: Bool = false) {
         let appRef = AXUIElementCreateApplication(pid)
 
         // Some apps (e.g. Spotify/Electron) set AXEnhancedUserInterface=true,
@@ -296,16 +304,45 @@ enum WindowTiler {
         var position = CGPoint(x: rect.origin.x, y: rect.origin.y)
         var size = CGSize(width: rect.width, height: rect.height)
 
-        // size → position → size: setting size first avoids macOS clamping
-        // the position to keep the old (larger/smaller) frame on screen.
-        if let sizeValue = AXValueCreate(.cgSize, &size) {
-            AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
-        }
-        if let posValue = AXValueCreate(.cgPoint, &position) {
-            AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
-        }
-        if let sizeValue = AXValueCreate(.cgSize, &size) {
-            AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
+        if positionFirst {
+            // Cross-screen: position → size → position → size (4 ops).
+            //
+            // macOS clamps each AX attribute against the window's current screen.
+            // Neither size-first nor position-first alone works for both directions:
+            //   - Small→big screen: size-first clamps the larger size to the small screen.
+            //   - Big→small screen: position-first clamps position because the oversized
+            //     window overflows the small screen.
+            // The 4-op sequence handles both: first pos/size gets us roughly right,
+            // second pos/size corrects whatever macOS clamped in the first pass.
+            //
+            // History: this was added, then removed in e1e1f77 because it broke
+            // some other flow. Re-added because without it, windows don't fill the
+            // target screen when moving between screens of different sizes. If this
+            // causes problems again, fix the other flow — don't remove the 4th op.
+            if let posValue = AXValueCreate(.cgPoint, &position) {
+                AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
+            }
+            if let sizeValue = AXValueCreate(.cgSize, &size) {
+                AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
+            }
+            if let posValue = AXValueCreate(.cgPoint, &position) {
+                AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
+            }
+            if let sizeValue = AXValueCreate(.cgSize, &size) {
+                AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
+            }
+        } else {
+            // Same-screen: size → position → size. Setting size first avoids
+            // macOS clamping the position to keep the old frame on screen.
+            if let sizeValue = AXValueCreate(.cgSize, &size) {
+                AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
+            }
+            if let posValue = AXValueCreate(.cgPoint, &position) {
+                AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
+            }
+            if let sizeValue = AXValueCreate(.cgSize, &size) {
+                AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
+            }
         }
 
         if hadEnhancedUI {
