@@ -135,8 +135,12 @@ final class HotkeyManager {
         // ctrl+cmd+h/l/j → tile current window
         if hasCmd && hasCtrl && !hasAlt {
             if let position = keyCodeToPosition[keyCode] {
-                logger.info("Tile current window -> \(position)")
                 onTile?(position)
+                return nil
+            }
+            // ctrl+cmd+b → debug marker in logs
+            if keyCode == Int64(kVK_ANSI_B) {
+                logger.error("━━━━━━━━━━━━━━━━ ERROR MARKER ━━━━━━━━━━━━━━━━")
                 return nil
             }
         }

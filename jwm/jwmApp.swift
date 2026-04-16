@@ -145,7 +145,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             },
             onTile: { position in
-                logger.info("Tiling current window -> \(position)")
                 WindowTiler.tile(position)
             },
             onFocusTile: { appKey, position in
