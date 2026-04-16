@@ -17,33 +17,51 @@ enum TilePosition: CustomStringConvertible {
     }
 }
 
-/// Tracks which app occupies the full-screen slot on each display.
+/// Tracks which apps occupy the full-screen slot on each display.
+/// Multiple apps can be fullscreen-sized simultaneously (e.g. one tiled, one
+/// just focused) so we keep an ordered list per display rather than a single PID.
 struct SlotState {
-    private var fullScreen: [CGDirectDisplayID: pid_t] = [:]
+    private var fullScreen: [CGDirectDisplayID: [pid_t]] = [:]
 
+    /// Primary fullscreen app for a display (last promoted). Returns nil if empty.
     func fullScreen(forDisplay id: CGDirectDisplayID) -> pid_t? {
-        fullScreen[id]
+        fullScreen[id]?.last
     }
 
-    mutating func setFullScreen(_ pid: pid_t?, forDisplay id: CGDirectDisplayID) {
-        if let pid = pid {
-            fullScreen[id] = pid
-        } else {
-            fullScreen.removeValue(forKey: id)
+    /// All fullscreen PIDs tracked on a display, newest last.
+    func allFullScreen(forDisplay id: CGDirectDisplayID) -> [pid_t] {
+        fullScreen[id] ?? []
+    }
+
+    /// Add a PID to a display's fullscreen list (no-op if already present).
+    mutating func addFullScreen(_ pid: pid_t, forDisplay id: CGDirectDisplayID) {
+        var list = fullScreen[id] ?? []
+        if !list.contains(pid) {
+            list.append(pid)
         }
+        fullScreen[id] = list
     }
 
-    /// Clear the full-screen slot on any display that holds this pid.
+    /// Clear the entire fullscreen list for a display.
+    mutating func clearDisplay(_ id: CGDirectDisplayID) {
+        fullScreen.removeValue(forKey: id)
+    }
+
+    /// Remove a specific PID from all displays.
     mutating func clearFullScreen(pid: pid_t) {
-        for (id, p) in fullScreen where p == pid {
-            fullScreen.removeValue(forKey: id)
+        for id in fullScreen.keys {
+            fullScreen[id]?.removeAll { $0 == pid }
+            if fullScreen[id]?.isEmpty == true {
+                fullScreen.removeValue(forKey: id)
+            }
         }
     }
 
-    /// Clear any slots holding PIDs of apps that are no longer running.
+    /// Clear any entries holding PIDs of apps that are no longer running.
     mutating func purgeDeadPids() {
-        for (id, pid) in fullScreen {
-            if NSRunningApplication(processIdentifier: pid) == nil {
+        for id in fullScreen.keys {
+            fullScreen[id]?.removeAll { NSRunningApplication(processIdentifier: $0) == nil }
+            if fullScreen[id]?.isEmpty == true {
                 fullScreen.removeValue(forKey: id)
             }
         }
@@ -58,6 +76,11 @@ extension NSScreen {
 
 enum WindowTiler {
     static var slots = SlotState()
+
+    /// Resolve a PID to app name for logging. Falls back to "pid=N" if app is gone.
+    private static func appName(_ pid: pid_t) -> String {
+        NSRunningApplication(processIdentifier: pid)?.localizedName ?? "pid=\(pid)"
+    }
 
     /// Tile the frontmost window of the given app to the specified position.
     /// If no app is specified, tiles the frontmost window of the currently active app.
@@ -75,7 +98,7 @@ enum WindowTiler {
             let pid = targetApp.processIdentifier
             slots.clearFullScreen(pid: pid)
             if let nextScreen = moveToNextScreen(app: targetApp) {
-                slots.setFullScreen(pid, forDisplay: nextScreen.displayID)
+                slots.addFullScreen(pid, forDisplay: nextScreen.displayID)
                 logger.info("Set fullScreen slot on display \(nextScreen.displayID) after nextScreen move")
             }
             return
@@ -88,7 +111,7 @@ enum WindowTiler {
             return
         }
         let screenIndex = screens.firstIndex(of: screen) ?? -1
-        logger.info("Target app is on screen \(screenIndex) (frame: \(screen.frame))")
+        logger.info("\(targetApp.localizedName ?? "unknown") is on screen \(screenIndex) (frame: \(screen.frame))")
 
         // visibleFrame excludes the menu bar and Dock
         let frame = screen.visibleFrame
@@ -100,17 +123,19 @@ enum WindowTiler {
 
         let pid = targetApp.processIdentifier
 
-        // Displace full-screen app to the opposite half if we're tiling to a half,
-        // but only if both apps are on the same screen.
+        // Displace a full-screen app to the opposite half if we're tiling to a half.
+        // Validate the candidate is still alive and still actually fullscreen-sized
+        // before displacing — it may have been resized, killed, or moved since promotion.
         let displayID = screen.displayID
         if position == .left || position == .right {
-            if let fullPid = slots.fullScreen(forDisplay: displayID), fullPid != pid,
-               let displacedApp = NSRunningApplication(processIdentifier: fullPid) {
+            if let candidate = findDisplacementCandidate(excludingPid: pid, display: displayID, screen: screen) {
                 let oppositePosition: TilePosition = (position == .left) ? .right : .left
-                logger.info("Displacing full-screen app (pid \(fullPid)) to \(oppositePosition) on screen \(screenIndex) (display \(displayID))")
+                logger.info("Displacing \(appName(candidate)) to \(oppositePosition) on screen \(screenIndex) (display \(displayID))")
                 let oppositeRect = rectForPosition(oppositePosition, frame: frame, primaryHeight: primaryHeight)
-                setWindowPosition(pid: fullPid, rect: oppositeRect)
-                slots.setFullScreen(nil, forDisplay: displayID)
+                setWindowPosition(pid: candidate, rect: oppositeRect)
+                // Clear all fullscreen entries on this display — the displaced app is
+                // now a half, and any older entries are buried behind the new layout.
+                slots.clearDisplay(displayID)
             }
         }
 
@@ -122,7 +147,7 @@ enum WindowTiler {
             slots.clearFullScreen(pid: pid)
         case .fullScreen:
             slots.clearFullScreen(pid: pid)
-            slots.setFullScreen(pid, forDisplay: displayID)
+            slots.addFullScreen(pid, forDisplay: displayID)
         case .nextScreen:
             break // handled by early return above
         }
@@ -189,13 +214,13 @@ enum WindowTiler {
         let displayID = screen.displayID
         let frame = screen.visibleFrame
 
+        let name = app.localizedName ?? "pid=\(pid)"
         let leftRect = rectForPosition(.left, frame: frame, primaryHeight: primaryHeight)
         let rightRect = rectForPosition(.right, frame: frame, primaryHeight: primaryHeight)
-        logger.info("displaceIfHalf: windowRect=\(windowRect) screen.visibleFrame=\(frame) primaryHeight=\(primaryHeight) displayID=\(displayID)")
-        logger.info("displaceIfHalf: leftRect=\(leftRect) rightRect=\(rightRect)")
+        logger.info("displaceIfHalf(\(name)): windowRect=\(windowRect) leftRect=\(leftRect) rightRect=\(rightRect) displayID=\(displayID)")
 
         guard let position = matchHalfPosition(windowRect: windowRect, frame: frame, primaryHeight: primaryHeight) else {
-            logger.info("displaceIfHalf: no half match for \(app.localizedName ?? "pid=\(pid)")")
+            logger.info("displaceIfHalf(\(name)): no half match")
             return false
         }
 
@@ -206,14 +231,15 @@ enum WindowTiler {
             setWindowPosition(pid: pid, rect: snapRect)
         }
 
-        guard let fullPid = slots.fullScreen(forDisplay: displayID),
-              fullPid != pid else { return true }
+        guard let candidate = findDisplacementCandidate(excludingPid: pid, display: displayID, screen: screen) else {
+            return true
+        }
 
         let oppositePosition: TilePosition = (position == .left) ? .right : .left
         let oppositeRect = rectForPosition(oppositePosition, frame: frame, primaryHeight: primaryHeight)
-        logger.info("External activation: displacing full-screen app (pid \(fullPid)) to \(oppositePosition) for \(app.localizedName ?? "unknown")")
-        setWindowPosition(pid: fullPid, rect: oppositeRect)
-        slots.setFullScreen(nil, forDisplay: displayID)
+        logger.info("External activation: displacing \(appName(candidate)) to \(oppositePosition) for \(name)")
+        setWindowPosition(pid: candidate, rect: oppositeRect)
+        slots.clearDisplay(displayID)
         return true
     }
 
@@ -255,12 +281,62 @@ enum WindowTiler {
               abs(windowRect.height - fullRect.height) < tolerance else {
             return false
         }
-        if slots.fullScreen(forDisplay: displayID) != pid {
-            slots.clearFullScreen(pid: pid)
-            slots.setFullScreen(pid, forDisplay: displayID)
+        if !slots.allFullScreen(forDisplay: displayID).contains(pid) {
+            slots.clearFullScreen(pid: pid) // remove from other displays first
+            slots.addFullScreen(pid, forDisplay: displayID)
             logger.info("Promoted \(app.localizedName ?? "pid=\(pid)") to fullScreen slot on display \(displayID)")
         }
         return true
+    }
+
+    /// Find a valid displacement candidate on the given display, excluding the
+    /// app that is about to be tiled. Walks the fullscreen list and validates
+    /// each entry: the process must still be running, still have a readable
+    /// window, and that window must still be fullscreen-sized on the expected
+    /// screen. Stale entries (dead, resized, moved to another screen) are
+    /// pruned as we go so the list stays clean.
+    private static func findDisplacementCandidate(
+        excludingPid: pid_t,
+        display: CGDirectDisplayID,
+        screen: NSScreen
+    ) -> pid_t? {
+        let candidates = slots.allFullScreen(forDisplay: display)
+        let primaryHeight = NSScreen.screens[0].frame.height
+        let fullRect = rectForPosition(.fullScreen, frame: screen.visibleFrame, primaryHeight: primaryHeight)
+        let tolerance: CGFloat = 5
+
+        for pid in candidates.reversed() {
+            if pid == excludingPid { continue }
+            let name = appName(pid)
+
+            // Still running?
+            guard NSRunningApplication(processIdentifier: pid) != nil else {
+                logger.info("Pruning \(name) from fullscreen slot: process dead")
+                slots.clearFullScreen(pid: pid)
+                continue
+            }
+
+            // Still has a window we can read?
+            guard let windowRect = getWindowRect(pid: pid) else {
+                logger.info("Pruning \(name) from fullscreen slot: no window")
+                slots.clearFullScreen(pid: pid)
+                continue
+            }
+
+            // Still fullscreen-sized on this display?
+            guard abs(windowRect.origin.x - fullRect.origin.x) < tolerance,
+                  abs(windowRect.origin.y - fullRect.origin.y) < tolerance,
+                  abs(windowRect.width - fullRect.width) < tolerance,
+                  abs(windowRect.height - fullRect.height) < tolerance else {
+                logger.info("Pruning \(name) from fullscreen slot: window resized/moved")
+                slots.clearFullScreen(pid: pid)
+                continue
+            }
+
+            return pid
+        }
+
+        return nil
     }
 
     /// Read the current position and size of the frontmost window of the given app.
@@ -393,7 +469,7 @@ enum WindowTiler {
 
         let axWindow = windowRef as! AXUIElement
 
-        logger.info("Setting window to \(rect.debugDescription)")
+        logger.info("Setting \(appName(pid)) window to \(rect.debugDescription)")
 
         var position = CGPoint(x: rect.origin.x, y: rect.origin.y)
         var size = CGSize(width: rect.width, height: rect.height)
