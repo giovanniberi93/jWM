@@ -76,6 +76,11 @@ extension NSScreen {
 
 enum WindowTiler {
     static var slots = SlotState()
+    /// The previously active app. Used to promote-check on defocus, catching
+    /// apps that resized to fullscreen while they were already focused.
+    /// Strong ref: the NSRunningApplication from the notification may be transient,
+    /// so a weak ref would go nil before the next activation fires.
+    private static var lastActiveApp: NSRunningApplication?
 
     /// Resolve a PID to app name for logging. Falls back to "pid=N" if app is gone.
     private static func appName(_ pid: pid_t) -> String {
@@ -248,6 +253,16 @@ enum WindowTiler {
     /// iteration; for freshly launched apps (e.g. via Spotlight) it retries
     /// until the window appears.
     static func guardActivation(app: NSRunningApplication) {
+        // Before processing the new app, promote-check the one that just lost
+        // focus. Catches apps that resized to fullscreen while already active
+        // (no activation event would have fired for them).
+        if let prev = lastActiveApp, prev.processIdentifier != app.processIdentifier {
+            if promoteIfFullScreen(app: prev) {
+                logger.info("Promoted \(prev.localizedName ?? "unknown") on defocus (resized while active)")
+            }
+        }
+        lastActiveApp = app
+
         let pid = app.processIdentifier
         DispatchQueue.global(qos: .userInitiated).async {
             let start = Date()
@@ -269,16 +284,24 @@ enum WindowTiler {
     @discardableResult
     static func promoteIfFullScreen(app: NSRunningApplication) -> Bool {
         let pid = app.processIdentifier
-        guard let windowRect = getWindowRect(pid: pid) else { return false }
-        guard let screen = screenForApp(app) else { return false }
+        let name = app.localizedName ?? "pid=\(pid)"
+        guard let windowRect = getWindowRect(pid: pid) else {
+            logger.info("promoteIfFullScreen(\(name)): no window rect")
+            return false
+        }
+        guard let screen = screenForApp(app) else {
+            logger.info("promoteIfFullScreen(\(name)): no screen")
+            return false
+        }
         let primaryHeight = NSScreen.screens[0].frame.height
         let fullRect = rectForPosition(.fullScreen, frame: screen.visibleFrame, primaryHeight: primaryHeight)
-        let tolerance: CGFloat = 5
+        let tolerance: CGFloat = 20
         let displayID = screen.displayID
         guard abs(windowRect.origin.x - fullRect.origin.x) < tolerance,
               abs(windowRect.origin.y - fullRect.origin.y) < tolerance,
               abs(windowRect.width - fullRect.width) < tolerance,
               abs(windowRect.height - fullRect.height) < tolerance else {
+            logger.info("promoteIfFullScreen(\(name)): not fullscreen (window=\(windowRect) expected=\(fullRect))")
             return false
         }
         if !slots.allFullScreen(forDisplay: displayID).contains(pid) {
@@ -303,7 +326,7 @@ enum WindowTiler {
         let candidates = slots.allFullScreen(forDisplay: display)
         let primaryHeight = NSScreen.screens[0].frame.height
         let fullRect = rectForPosition(.fullScreen, frame: screen.visibleFrame, primaryHeight: primaryHeight)
-        let tolerance: CGFloat = 5
+        let tolerance: CGFloat = 20
 
         for pid in candidates.reversed() {
             if pid == excludingPid { continue }
