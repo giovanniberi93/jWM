@@ -78,7 +78,7 @@ final class SnapManager {
     private func handleMouseDown(_ event: NSEvent) {
         resetState()
 
-        let screenPoint = NSEvent.mouseLocation.screenFlipped
+        let screenPoint = NSEvent.mouseLocation.toCG
         guard let (pid, origin) = getWindowInfoUnderCursor(at: screenPoint) else {
             // Debug: check what app is under cursor via frontmost
             if let front = NSWorkspace.shared.frontmostApplication {
@@ -104,7 +104,7 @@ final class SnapManager {
 
         // Wait for cursor to move a minimum distance before checking window movement
         if !windowIsMoving {
-            let cursorFlipped = cursor.screenFlipped
+            let cursorFlipped = cursor.toCG
             guard let mouseDown = mouseDownLocation else { return }
             let dx = abs(cursorFlipped.x - mouseDown.x)
             let dy = abs(cursorFlipped.y - mouseDown.y)
@@ -131,15 +131,7 @@ final class SnapManager {
             currentEdge = newEdge
             currentSnapScreen = snapScreen
             if let edge = newEdge, let screen = snapScreen {
-                let primaryHeight = NSScreen.screens[0].frame.height
-                let rect = WindowTiler.rectForPosition(edge, frame: screen.visibleFrame, primaryHeight: primaryHeight)
-                // rectForPosition returns CG coords (top-left origin), convert to AppKit (bottom-left)
-                let appKitRect = NSRect(
-                    x: rect.origin.x,
-                    y: primaryHeight - rect.origin.y - rect.height,
-                    width: rect.width,
-                    height: rect.height
-                )
+                let appKitRect = Coords.appKit(fromCG: Coords.rect(for: edge, on: screen))
                 overlay.show(at: appKitRect)
             } else {
                 overlay.hide()
@@ -158,7 +150,7 @@ final class SnapManager {
               let pid = draggedWindowPID,
               let app = NSRunningApplication(processIdentifier: pid) else { return }
 
-        logger.info("snap: TILING app=\(app.localizedName ?? "unknown") edge=\(edge) screen=\(NSScreen.screens.firstIndex(of: screen) ?? -1) cursor=\(NSEvent.mouseLocation.screenFlipped)")
+        logger.info("snap: TILING app=\(app.localizedName ?? "unknown") edge=\(edge) screen=\(NSScreen.screens.firstIndex(of: screen) ?? -1) cursor=\(NSEvent.mouseLocation.toCG)")
         WindowTiler.tile(edge, app: app, targetScreen: screen)
     }
 
@@ -222,12 +214,3 @@ final class SnapManager {
     }
 }
 
-// MARK: - Coordinate conversion
-
-extension NSPoint {
-    /// Convert from AppKit coordinates (bottom-left origin) to CG/screen coordinates (top-left origin).
-    var screenFlipped: CGPoint {
-        guard let primaryHeight = NSScreen.screens.first?.frame.height else { return self }
-        return CGPoint(x: x, y: primaryHeight - y)
-    }
-}

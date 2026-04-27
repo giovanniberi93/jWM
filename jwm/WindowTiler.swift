@@ -68,12 +68,6 @@ struct SlotState {
     }
 }
 
-extension NSScreen {
-    var displayID: CGDirectDisplayID {
-        (deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
-    }
-}
-
 enum WindowTiler {
     static var slots = SlotState()
     /// The previously active app. Used to promote-check on defocus, catching
@@ -109,22 +103,15 @@ enum WindowTiler {
             return
         }
 
-        let screens = NSScreen.screens
         let screen = targetScreen ?? screenForApp(targetApp) ?? NSScreen.main
         guard let screen = screen else {
             logger.info("No screen found")
             return
         }
-        let screenIndex = screens.firstIndex(of: screen) ?? -1
+        let screenIndex = NSScreen.screens.firstIndex(of: screen) ?? -1
         logger.info("\(targetApp.localizedName ?? "unknown") is on screen \(screenIndex) (frame: \(screen.frame))")
 
-        // visibleFrame excludes the menu bar and Dock
-        let frame = screen.visibleFrame
-        // CG coordinates use the primary screen's top-left as origin, so we always
-        // need the primary screen's height for the AppKit→CG y-flip, even when
-        // tiling on a secondary screen.
-        let primaryHeight = screens[0].frame.height
-        let cgRect = rectForPosition(position, frame: frame, primaryHeight: primaryHeight)
+        let cgRect = Coords.rect(for: position, on: screen)
 
         let pid = targetApp.processIdentifier
 
@@ -136,7 +123,7 @@ enum WindowTiler {
             if let candidate = findDisplacementCandidate(excludingPid: pid, display: displayID, screen: screen) {
                 let oppositePosition: TilePosition = (position == .left) ? .right : .left
                 logger.info("Displacing \(appName(candidate)) to \(oppositePosition) on screen \(screenIndex) (display \(displayID))")
-                let oppositeRect = rectForPosition(oppositePosition, frame: frame, primaryHeight: primaryHeight)
+                let oppositeRect = Coords.rect(for: oppositePosition, on: screen)
                 setWindowPosition(pid: candidate, rect: oppositeRect)
                 // Clear all fullscreen entries on this display — the displaced app is
                 // now a half, and any older entries are buried behind the new layout.
@@ -158,38 +145,14 @@ enum WindowTiler {
         }
     }
 
-    static func rectForPosition(_ position: TilePosition, frame: NSRect, primaryHeight: CGFloat) -> CGRect {
-        let targetRect: CGRect
-        switch position {
-        case .left:
-            targetRect = CGRect(x: frame.origin.x, y: frame.origin.y, width: frame.width / 2, height: frame.height)
-        case .right:
-            targetRect = CGRect(x: frame.origin.x + frame.width / 2, y: frame.origin.y, width: frame.width / 2, height: frame.height)
-        case .fullScreen:
-            targetRect = frame
-        case .nextScreen:
-            targetRect = frame // unreachable; tile() returns early for .nextScreen
-        }
-        return CGRect(
-            x: targetRect.origin.x,
-            y: primaryHeight - targetRect.origin.y - targetRect.height,
-            width: targetRect.width,
-            height: targetRect.height
-        )
-    }
-
-    /// If the given app's window occupies a left/right half, displace any
-    /// full-screen app on the same display to the opposite half.
-    /// Called on external activation (Spotlight, Dock, Cmd-Tab) so the
-    /// two-slot model stays consistent even when jwm didn't initiate the focus.
-    /// Match a window rect against the left/right half positions for a given
-    /// screen frame. Returns .left or .right if within tolerance, nil otherwise.
-    /// Uses tight tolerance on position (20px) and generous tolerance on size
-    /// (15% of expected dimension) to catch apps that restore to roughly-half sizes.
-    static func matchHalfPosition(windowRect: CGRect, frame: NSRect, primaryHeight: CGFloat) -> TilePosition? {
+    /// Match a window rect against the left/right half positions for a given screen.
+    /// Returns .left or .right if within tolerance, nil otherwise.
+    /// Tight tolerance on position (20px); generous on size (15% of expected dim)
+    /// to catch apps that restore to roughly-half sizes.
+    static func matchHalfPosition(windowRect: CGRect, screen: NSScreen) -> TilePosition? {
         let posTolerance: CGFloat = 20
-        let leftRect = rectForPosition(.left, frame: frame, primaryHeight: primaryHeight)
-        let rightRect = rectForPosition(.right, frame: frame, primaryHeight: primaryHeight)
+        let leftRect = Coords.rect(for: .left, on: screen)
+        let rightRect = Coords.rect(for: .right, on: screen)
 
         func matches(_ expected: CGRect) -> Bool {
             abs(windowRect.origin.x - expected.origin.x) < posTolerance
@@ -215,22 +178,20 @@ enum WindowTiler {
             logger.info("displaceIfHalf: no screen for \(app.localizedName ?? "pid=\(pid)")")
             return false
         }
-        let primaryHeight = NSScreen.screens[0].frame.height
         let displayID = screen.displayID
-        let frame = screen.visibleFrame
 
         let name = app.localizedName ?? "pid=\(pid)"
-        let leftRect = rectForPosition(.left, frame: frame, primaryHeight: primaryHeight)
-        let rightRect = rectForPosition(.right, frame: frame, primaryHeight: primaryHeight)
+        let leftRect = Coords.rect(for: .left, on: screen)
+        let rightRect = Coords.rect(for: .right, on: screen)
         logger.info("displaceIfHalf(\(name)): windowRect=\(windowRect) leftRect=\(leftRect) rightRect=\(rightRect) displayID=\(displayID)")
 
-        guard let position = matchHalfPosition(windowRect: windowRect, frame: frame, primaryHeight: primaryHeight) else {
+        guard let position = matchHalfPosition(windowRect: windowRect, screen: screen) else {
             logger.info("displaceIfHalf(\(name)): no half match")
             return false
         }
 
         // Snap the activated app to the exact half position
-        let snapRect = rectForPosition(position, frame: frame, primaryHeight: primaryHeight)
+        let snapRect = Coords.rect(for: position, on: screen)
         if windowRect != snapRect {
             logger.info("Snapping \(app.localizedName ?? "pid=\(pid)") to exact \(position)")
             setWindowPosition(pid: pid, rect: snapRect)
@@ -241,7 +202,7 @@ enum WindowTiler {
         }
 
         let oppositePosition: TilePosition = (position == .left) ? .right : .left
-        let oppositeRect = rectForPosition(oppositePosition, frame: frame, primaryHeight: primaryHeight)
+        let oppositeRect = Coords.rect(for: oppositePosition, on: screen)
         logger.info("External activation: displacing \(appName(candidate)) to \(oppositePosition) for \(name)")
         setWindowPosition(pid: candidate, rect: oppositeRect)
         slots.clearDisplay(displayID)
@@ -293,8 +254,7 @@ enum WindowTiler {
             logger.info("promoteIfFullScreen(\(name)): no screen")
             return false
         }
-        let primaryHeight = NSScreen.screens[0].frame.height
-        let fullRect = rectForPosition(.fullScreen, frame: screen.visibleFrame, primaryHeight: primaryHeight)
+        let fullRect = Coords.rect(for: .fullScreen, on: screen)
         let tolerance: CGFloat = 20
         let displayID = screen.displayID
         guard abs(windowRect.origin.x - fullRect.origin.x) < tolerance,
@@ -324,8 +284,7 @@ enum WindowTiler {
         screen: NSScreen
     ) -> pid_t? {
         let candidates = slots.allFullScreen(forDisplay: display)
-        let primaryHeight = NSScreen.screens[0].frame.height
-        let fullRect = rectForPosition(.fullScreen, frame: screen.visibleFrame, primaryHeight: primaryHeight)
+        let fullRect = Coords.rect(for: .fullScreen, on: screen)
         let tolerance: CGFloat = 20
 
         for pid in candidates.reversed() {
@@ -412,14 +371,7 @@ enum WindowTiler {
     /// Returns nil if the window rect can't be read or no screen contains it.
     private static func screenForApp(_ app: NSRunningApplication) -> NSScreen? {
         guard let windowRect = getWindowRect(pid: app.processIdentifier) else { return nil }
-        let primaryHeight = NSScreen.screens[0].frame.height
-        // Window rect is in CG coordinates (top-left origin). Convert center to
-        // AppKit coordinates (bottom-left origin) to match NSScreen.frame.
-        let windowCenter = CGPoint(
-            x: windowRect.midX,
-            y: primaryHeight - windowRect.midY
-        )
-        return NSScreen.screens.first { $0.frame.contains(windowCenter) }
+        return Coords.screen(containingCG: windowRect)
     }
 
     /// Move the given app's window to the next screen, tiled full screen.
@@ -438,14 +390,7 @@ enum WindowTiler {
         let targetScreen = screens[nextIndex]
         logger.info("moveToNextScreen: moving \(app.localizedName ?? "unknown") from screen \(currentIndex) to \(nextIndex)")
 
-        let frame = targetScreen.visibleFrame
-        let primaryHeight = screens[0].frame.height
-        let cgRect = CGRect(
-            x: frame.origin.x,
-            y: primaryHeight - frame.origin.y - frame.height,
-            width: frame.width,
-            height: frame.height
-        )
+        let cgRect = Coords.rect(for: .fullScreen, on: targetScreen)
 
         let pid = app.processIdentifier
         // Cross-screen moves need position first so macOS evaluates the resize
