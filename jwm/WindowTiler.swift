@@ -1,82 +1,6 @@
 import Cocoa
 import os
 
-enum TilePosition: CustomStringConvertible {
-    case left
-    case right
-    case fullScreen
-    case nextScreen
-
-    var description: String {
-        switch self {
-        case .left: return "left"
-        case .right: return "right"
-        case .fullScreen: return "fullScreen"
-        case .nextScreen: return "nextScreen"
-        }
-    }
-
-    /// Mirror half. Nil for non-half positions.
-    var opposite: TilePosition? {
-        switch self {
-        case .left: return .right
-        case .right: return .left
-        case .fullScreen, .nextScreen: return nil
-        }
-    }
-}
-
-/// Tracks which apps occupy the full-screen slot on each display.
-/// Multiple apps can be fullscreen-sized simultaneously (e.g. one tiled, one
-/// just focused) so we keep an ordered list per display rather than a single PID.
-struct SlotState {
-    private var fullScreen: [CGDirectDisplayID: [pid_t]] = [:]
-
-    /// Primary fullscreen app for a display (last promoted). Returns nil if empty.
-    func fullScreen(forDisplay id: CGDirectDisplayID) -> pid_t? {
-        fullScreen[id]?.last
-    }
-
-    /// All fullscreen PIDs tracked on a display, newest last.
-    func allFullScreen(forDisplay id: CGDirectDisplayID) -> [pid_t] {
-        fullScreen[id] ?? []
-    }
-
-    /// Add a PID to a display's fullscreen list (no-op if already present).
-    mutating func addFullScreen(_ pid: pid_t, forDisplay id: CGDirectDisplayID) {
-        var list = fullScreen[id] ?? []
-        if !list.contains(pid) {
-            list.append(pid)
-        }
-        fullScreen[id] = list
-    }
-
-    /// Clear the entire fullscreen list for a display.
-    mutating func clearDisplay(_ id: CGDirectDisplayID) {
-        fullScreen.removeValue(forKey: id)
-    }
-
-    /// Remove a specific PID from all displays.
-    mutating func clearFullScreen(pid: pid_t) {
-        for id in fullScreen.keys {
-            fullScreen[id]?.removeAll { $0 == pid }
-            if fullScreen[id]?.isEmpty == true {
-                fullScreen.removeValue(forKey: id)
-            }
-        }
-    }
-
-    /// Clear any entries holding PIDs of apps that are no longer running.
-    mutating func purgeDeadPids() {
-        for id in fullScreen.keys {
-            fullScreen[id]?.removeAll { NSRunningApplication(processIdentifier: $0) == nil }
-            if fullScreen[id]?.isEmpty == true {
-                fullScreen.removeValue(forKey: id)
-            }
-        }
-    }
-}
-
 enum WindowTiler {
     static var slots = SlotState()
     /// The previously active app. Used to promote-check on defocus, catching
@@ -136,13 +60,13 @@ enum WindowTiler {
            let candidate = findDisplacementCandidate(excludingPid: pid, display: displayID, screen: screen) {
             logger.info("Displacing \(appName(candidate)) to \(oppositePosition) on screen \(screenIndex) (display \(displayID))")
             let oppositeRect = Coords.rect(for: oppositePosition, on: screen)
-            setWindowPosition(pid: candidate, rect: oppositeRect)
+            WindowAX.setPosition(pid: candidate, rect: oppositeRect)
             // Clear all fullscreen entries on this display — the displaced app is
             // now a half, and any older entries are buried behind the new layout.
             slots.clearDisplay(displayID)
         }
 
-        setWindowPosition(pid: pid, rect: cgRect)
+        WindowAX.setPosition(pid: pid, rect: cgRect)
 
         // Update slot tracking
         switch position {
@@ -181,7 +105,7 @@ enum WindowTiler {
     static func displaceIfHalf(app: NSRunningApplication) -> Bool {
         let pid = app.processIdentifier
         let name = appName(app)
-        guard let windowRect = getWindowRect(pid: pid) else {
+        guard let windowRect = WindowAX.getRect(pid: pid) else {
             logger.info("displaceIfHalf: no window rect for \(name)")
             return false
         }
@@ -204,7 +128,7 @@ enum WindowTiler {
         let snapRect = Coords.rect(for: position, on: screen)
         if windowRect != snapRect {
             logger.info("Snapping \(name) to exact \(position)")
-            setWindowPosition(pid: pid, rect: snapRect)
+            WindowAX.setPosition(pid: pid, rect: snapRect)
         }
 
         guard let candidate = findDisplacementCandidate(excludingPid: pid, display: displayID, screen: screen),
@@ -214,7 +138,7 @@ enum WindowTiler {
 
         let oppositeRect = Coords.rect(for: oppositePosition, on: screen)
         logger.info("External activation: displacing \(appName(candidate)) to \(oppositePosition) for \(name)")
-        setWindowPosition(pid: candidate, rect: oppositeRect)
+        WindowAX.setPosition(pid: candidate, rect: oppositeRect)
         slots.clearDisplay(displayID)
         return true
     }
@@ -256,7 +180,7 @@ enum WindowTiler {
     static func promoteIfFullScreen(app: NSRunningApplication) -> Bool {
         let pid = app.processIdentifier
         let name = appName(app)
-        guard let windowRect = getWindowRect(pid: pid) else {
+        guard let windowRect = WindowAX.getRect(pid: pid) else {
             logger.info("promoteIfFullScreen(\(name)): no window rect")
             return false
         }
@@ -304,7 +228,7 @@ enum WindowTiler {
             }
 
             // Still has a window we can read?
-            guard let windowRect = getWindowRect(pid: pid) else {
+            guard let windowRect = WindowAX.getRect(pid: pid) else {
                 logger.info("Pruning \(name) from fullscreen slot: no window")
                 slots.clearFullScreen(pid: pid)
                 continue
@@ -323,56 +247,10 @@ enum WindowTiler {
         return nil
     }
 
-    /// Read the current position and size of the frontmost window of the given app.
-    static func getWindowRect(pid: pid_t) -> CGRect? {
-        let appRef = AXUIElementCreateApplication(pid)
-        var windowRef: CFTypeRef?
-        var result = AXUIElementCopyAttributeValue(appRef, kAXFocusedWindowAttribute as CFString, &windowRef)
-        if result != .success {
-            var windowsRef: CFTypeRef?
-            result = AXUIElementCopyAttributeValue(appRef, kAXWindowsAttribute as CFString, &windowsRef)
-            if result == .success, let windows = windowsRef as? [AXUIElement], let first = windows.first {
-                windowRef = first
-            } else {
-                return nil
-            }
-        }
-        let axWindow = windowRef as! AXUIElement
-        var posRef: CFTypeRef?
-        var sizeRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(axWindow, kAXPositionAttribute as CFString, &posRef) == .success,
-              AXUIElementCopyAttributeValue(axWindow, kAXSizeAttribute as CFString, &sizeRef) == .success else {
-            return nil
-        }
-        var pos = CGPoint.zero
-        var size = CGSize.zero
-        AXValueGetValue(posRef as! AXValue, .cgPoint, &pos)
-        AXValueGetValue(sizeRef as! AXValue, .cgSize, &size)
-        return CGRect(origin: pos, size: size)
-    }
-
-    /// Poll briefly and re-tile if the app restores its own window state.
-    /// Some apps (especially Electron) process AX changes asynchronously.
-    static func guardPosition(pid: pid_t, retile: @escaping () -> Void) {
-        let expectedRect = getWindowRect(pid: pid)
-        DispatchQueue.global(qos: .userInitiated).async {
-            let start = Date()
-            while Date().timeIntervalSince(start) < 0.5 {
-                Thread.sleep(forTimeInterval: 0.05)
-                if let current = getWindowRect(pid: pid),
-                   current != expectedRect {
-                    logger.info("Window drifted after tiling, re-applying")
-                    DispatchQueue.main.async { retile() }
-                    return
-                }
-            }
-        }
-    }
-
     /// Find which screen the given app's window is on.
     /// Returns nil if the window rect can't be read or no screen contains it.
     private static func screenForApp(_ app: NSRunningApplication) -> NSScreen? {
-        guard let windowRect = getWindowRect(pid: app.processIdentifier) else { return nil }
+        guard let windowRect = WindowAX.getRect(pid: app.processIdentifier) else { return nil }
         return Coords.screen(containingCG: windowRect)
     }
 
@@ -397,96 +275,7 @@ enum WindowTiler {
         let pid = app.processIdentifier
         // Cross-screen moves need position first so macOS evaluates the resize
         // against the target screen's bounds, not the source screen's.
-        setWindowPosition(pid: pid, rect: cgRect, positionFirst: true)
+        WindowAX.setPosition(pid: pid, rect: cgRect, positionFirst: true)
         return targetScreen
-    }
-
-    private static func setWindowPosition(pid: pid_t, rect: CGRect, positionFirst: Bool = false) {
-        let appRef = AXUIElementCreateApplication(pid)
-
-        // Some apps (e.g. Spotify/Electron) set AXEnhancedUserInterface=true,
-        // which causes animated window transitions. Temporarily disable it so
-        // the move is instant, then restore. Same approach as Rectangle.
-        let enhancedUIKey = "AXEnhancedUserInterface" as CFString
-        var enhancedUIRef: CFTypeRef?
-        AXUIElementCopyAttributeValue(appRef, enhancedUIKey, &enhancedUIRef)
-        let hadEnhancedUI = (enhancedUIRef as? Bool) == true
-        if hadEnhancedUI {
-            AXUIElementSetAttributeValue(appRef, enhancedUIKey, kCFBooleanFalse)
-        }
-
-        // Try focused window first
-        var windowRef: CFTypeRef?
-        var result = AXUIElementCopyAttributeValue(appRef, kAXFocusedWindowAttribute as CFString, &windowRef)
-
-        if result != .success {
-            logger.info("kAXFocusedWindow failed (\(result.rawValue)), trying kAXWindows...")
-            // Fall back to first window in the windows list
-            var windowsRef: CFTypeRef?
-            result = AXUIElementCopyAttributeValue(appRef, kAXWindowsAttribute as CFString, &windowsRef)
-            if result == .success, let windows = windowsRef as? [AXUIElement], let first = windows.first {
-                logger.info("Found \(windows.count) window(s) via kAXWindows")
-                windowRef = first
-            } else {
-                logger.info("kAXWindows also failed (\(result.rawValue))")
-                var names: CFArray?
-                if AXUIElementCopyAttributeNames(appRef, &names) == .success, let names = names as? [String] {
-                    logger.info("Available attributes: \(names)")
-                }
-                return
-            }
-        }
-
-        let axWindow = windowRef as! AXUIElement
-
-        logger.info("Setting \(appName(pid)) window to \(rect.debugDescription)")
-
-        var position = CGPoint(x: rect.origin.x, y: rect.origin.y)
-        var size = CGSize(width: rect.width, height: rect.height)
-
-        if positionFirst {
-            // Cross-screen: position → size → position → size (4 ops).
-            //
-            // macOS clamps each AX attribute against the window's current screen.
-            // Neither size-first nor position-first alone works for both directions:
-            //   - Small→big screen: size-first clamps the larger size to the small screen.
-            //   - Big→small screen: position-first clamps position because the oversized
-            //     window overflows the small screen.
-            // The 4-op sequence handles both: first pos/size gets us roughly right,
-            // second pos/size corrects whatever macOS clamped in the first pass.
-            //
-            // History: this was added, then removed in e1e1f77 because it broke
-            // some other flow. Re-added because without it, windows don't fill the
-            // target screen when moving between screens of different sizes. If this
-            // causes problems again, fix the other flow — don't remove the 4th op.
-            if let posValue = AXValueCreate(.cgPoint, &position) {
-                AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
-            }
-            if let sizeValue = AXValueCreate(.cgSize, &size) {
-                AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
-            }
-            if let posValue = AXValueCreate(.cgPoint, &position) {
-                AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
-            }
-            if let sizeValue = AXValueCreate(.cgSize, &size) {
-                AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
-            }
-        } else {
-            // Same-screen: size → position → size. Setting size first avoids
-            // macOS clamping the position to keep the old frame on screen.
-            if let sizeValue = AXValueCreate(.cgSize, &size) {
-                AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
-            }
-            if let posValue = AXValueCreate(.cgPoint, &position) {
-                AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
-            }
-            if let sizeValue = AXValueCreate(.cgSize, &size) {
-                AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
-            }
-        }
-
-        if hadEnhancedUI {
-            AXUIElementSetAttributeValue(appRef, enhancedUIKey, kCFBooleanTrue)
-        }
     }
 }

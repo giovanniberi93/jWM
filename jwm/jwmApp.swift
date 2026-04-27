@@ -163,7 +163,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     AppFocuser.launchAndWaitForWindow(bundleID: bundleID) { app in
                         WindowTiler.tile(position, app: app)
                         app.activate()
-                        WindowTiler.guardPosition(pid: app.processIdentifier) {
+                        WindowAX.guardPosition(pid: app.processIdentifier) {
                             WindowTiler.tile(position, app: app)
                         }
                     }
