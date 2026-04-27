@@ -12,7 +12,7 @@ dev: build
 	$(BUILD_DIR)/Build/Products/Debug/$(SCHEME).app/Contents/MacOS/$(SCHEME)
 
 .PHONY: install
-install: build
+install: build reset-accessibility-permissions
 	rm -rf /Applications/$(APP_NAME).app
 	ditto $(BUILD_DIR)/Build/Products/Debug/$(SCHEME).app /Applications/$(APP_NAME).app
 
