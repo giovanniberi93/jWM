@@ -74,3 +74,13 @@ extension NSPoint {
     /// AppKit point → CG point. Convenience for `NSEvent.mouseLocation`.
     var toCG: CGPoint { Coords.cg(fromAppKit: self) }
 }
+
+extension CGRect {
+    /// Component-wise equality within `tolerance` on origin and size.
+    func approxEquals(_ other: CGRect, tolerance: CGFloat) -> Bool {
+        abs(origin.x - other.origin.x) < tolerance
+            && abs(origin.y - other.origin.y) < tolerance
+            && abs(width - other.width) < tolerance
+            && abs(height - other.height) < tolerance
+    }
+}
