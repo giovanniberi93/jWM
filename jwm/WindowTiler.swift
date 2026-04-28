@@ -85,8 +85,15 @@ enum WindowTiler {
     /// Tight tolerance on position (20px); generous on size (15% of expected dim)
     /// to catch apps that restore to roughly-half sizes.
     static func matchHalfPosition(windowRect: CGRect, screen: NSScreen) -> TilePosition? {
-        let leftRect = Coords.rect(for: .left, on: screen)
-        let rightRect = Coords.rect(for: .right, on: screen)
+        matchHalfPosition(windowRect: windowRect, frame: screen.visibleFrame, primaryHeight: Coords.primaryHeight)
+    }
+
+    /// Pure-logic seam for unit tests. Same semantics as the screen-based
+    /// overload, but takes the visibleFrame and primary screen height directly
+    /// so tests don't need to construct an NSScreen.
+    static func matchHalfPosition(windowRect: CGRect, frame: NSRect, primaryHeight: CGFloat) -> TilePosition? {
+        let leftRect = Coords.rect(for: .left, frame: frame, primaryHeight: primaryHeight)
+        let rightRect = Coords.rect(for: .right, frame: frame, primaryHeight: primaryHeight)
 
         func matches(_ expected: CGRect) -> Bool {
             abs(windowRect.origin.x - expected.origin.x) < positionTolerance
@@ -98,6 +105,11 @@ enum WindowTiler {
         if matches(leftRect) { return .left }
         if matches(rightRect) { return .right }
         return nil
+    }
+
+    /// Pure-logic seam for unit tests — wraps Coords.rect(for:frame:primaryHeight:).
+    static func rectForPosition(_ position: TilePosition, frame: NSRect, primaryHeight: CGFloat) -> CGRect {
+        Coords.rect(for: position, frame: frame, primaryHeight: primaryHeight)
     }
 
     /// Returns true if a displacement actually happened.

@@ -50,7 +50,12 @@ enum Coords {
     /// (excludes menu bar and Dock). `.nextScreen` returns the full screen rect
     /// — callers handling cross-screen moves use this for the destination.
     static func rect(for position: TilePosition, on screen: NSScreen) -> CGRect {
-        let frame = screen.visibleFrame
+        rect(for: position, frame: screen.visibleFrame, primaryHeight: primaryHeight)
+    }
+
+    /// Pure-logic seam for unit tests. Takes the visibleFrame and primary
+    /// screen height directly so tests don't need to construct an NSScreen.
+    static func rect(for position: TilePosition, frame: NSRect, primaryHeight: CGFloat) -> CGRect {
         let appKitRect: NSRect
         switch position {
         case .left:
@@ -60,7 +65,12 @@ enum Coords {
         case .fullScreen, .nextScreen:
             appKitRect = frame
         }
-        return cg(fromAppKit: appKitRect)
+        return CGRect(
+            x: appKitRect.origin.x,
+            y: primaryHeight - appKitRect.origin.y - appKitRect.height,
+            width: appKitRect.width,
+            height: appKitRect.height
+        )
     }
 }
 

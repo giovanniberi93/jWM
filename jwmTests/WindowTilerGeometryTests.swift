@@ -118,6 +118,21 @@ final class WindowTilerGeometryTests: XCTestCase {
         )
     }
 
+    func testMatchHalfPositionWithinBothTolerances() {
+        // Real-world Calendar/Mail case: app restores at slightly-off origin
+        // AND slightly-off size, both within their respective tolerances.
+        // matchHalfPosition must accept the combination, not just each axis alone.
+        var leftRect = WindowTiler.rectForPosition(.left, frame: frame, primaryHeight: primaryHeight)
+        leftRect.origin.x += 12       // within 20px position tolerance
+        leftRect.origin.y -= 8        // within 20px position tolerance
+        leftRect.size.width *= 1.08   // 8% wider, within 15% size tolerance
+        leftRect.size.height *= 0.93  // 7% shorter, within 15% size tolerance
+        XCTAssertEqual(
+            WindowTiler.matchHalfPosition(windowRect: leftRect, frame: frame, primaryHeight: primaryHeight),
+            .left
+        )
+    }
+
     func testMatchHalfPositionSecondaryScreen() {
         let secondaryFrame = NSRect(x: 1920, y: 0, width: 2560, height: 1440)
         let rightRect = WindowTiler.rectForPosition(.right, frame: secondaryFrame, primaryHeight: primaryHeight)
