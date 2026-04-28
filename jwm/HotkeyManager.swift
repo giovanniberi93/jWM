@@ -48,7 +48,6 @@ final class HotkeyManager {
 
         let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
             | (1 << CGEventType.flagsChanged.rawValue)
-            | (1 << CGEventType.leftMouseUp.rawValue)
         let callback: CGEventTapCallBack = { proxy, type, event, refcon in
             guard let refcon = refcon else { return Unmanaged.passRetained(event) }
             let manager = Unmanaged<HotkeyManager>.fromOpaque(refcon).takeUnretainedValue()
@@ -85,11 +84,6 @@ final class HotkeyManager {
                 }
             }
             return Unmanaged.passRetained(event)
-        }
-
-        // Double-click on title bar → tile full screen
-        if type == .leftMouseUp {
-            return handleMouseUp(event: event)
         }
 
         let flags = event.flags
@@ -156,132 +150,6 @@ final class HotkeyManager {
         }
 
         return Unmanaged.passRetained(event)
-    }
-
-    // MARK: - Double-click title bar → full screen
-
-    private static let titleBarRoles: Set<String> = [
-        kAXWindowRole as String,
-        kAXToolbarRole as String,
-        kAXStaticTextRole as String,
-    ]
-
-    private func handleMouseUp(event: CGEvent) -> Unmanaged<CGEvent>? {
-        let clickState = event.getIntegerValueField(.mouseEventClickState)
-        guard clickState == 2 else { return Unmanaged.passRetained(event) }
-
-        let point = event.location // CG coordinates (top-left origin)
-        guard let (windowElement, pid, hitRole) = getWindowElementAtPoint(point) else {
-            logger.info("dblclick: no window element at \(point)")
-            return Unmanaged.passRetained(event)
-        }
-
-        let appName = NSRunningApplication(processIdentifier: pid)?.localizedName ?? "pid=\(pid)"
-
-        guard Self.titleBarRoles.contains(hitRole) else {
-            logger.info("dblclick: rejected role=\(hitRole) app=\(appName) at \(point)")
-            return Unmanaged.passRetained(event)
-        }
-
-        guard let titleBarFrame = getTitleBarFrame(windowElement: windowElement) else {
-            logger.info("dblclick: no title bar frame for app=\(appName)")
-            return Unmanaged.passRetained(event)
-        }
-
-        guard titleBarFrame.contains(point) else {
-            logger.info("dblclick: outside title bar app=\(appName) point=\(point) frame=\(titleBarFrame)")
-            return Unmanaged.passRetained(event)
-        }
-
-        guard let app = NSRunningApplication(processIdentifier: pid) else {
-            return Unmanaged.passRetained(event)
-        }
-
-        logger.info("dblclick: TILING app=\(app.localizedName ?? "unknown") role=\(hitRole) point=\(point) frame=\(titleBarFrame)")
-        WindowTiler.tile(.fullScreen, app: app)
-        return nil // suppress the event
-    }
-
-    private func getWindowElementAtPoint(_ point: CGPoint) -> (AXUIElement, pid_t, String)? {
-        let systemWide = AXUIElementCreateSystemWide()
-
-        var elementRef: AXUIElement?
-        guard AXUIElementCopyElementAtPosition(systemWide, Float(point.x), Float(point.y), &elementRef) == .success,
-              let element = elementRef else { return nil }
-
-        // Grab the role of the element that was actually hit
-        var hitRoleRef: CFTypeRef?
-        AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &hitRoleRef)
-        let hitRole = (hitRoleRef as? String) ?? ""
-
-        // Walk up to the window element
-        var current = element
-        while true {
-            var role: CFTypeRef?
-            AXUIElementCopyAttributeValue(current, kAXRoleAttribute as CFString, &role)
-            if let roleStr = role as? String, roleStr == (kAXWindowRole as String) {
-                break
-            }
-            var parent: CFTypeRef?
-            guard AXUIElementCopyAttributeValue(current, kAXParentAttribute as CFString, &parent) == .success,
-                  let parentElement = parent else { return nil }
-            current = (parentElement as! AXUIElement)
-        }
-
-        var pid: pid_t = 0
-        AXUIElementGetPid(current, &pid)
-        guard pid > 0 else { return nil }
-
-        return (current, pid, hitRole)
-    }
-
-    private func getTitleBarFrame(windowElement: AXUIElement) -> CGRect? {
-        // Get window frame
-        var posRef: CFTypeRef?
-        var sizeRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(windowElement, kAXPositionAttribute as CFString, &posRef) == .success,
-              AXUIElementCopyAttributeValue(windowElement, kAXSizeAttribute as CFString, &sizeRef) == .success else {
-            return nil
-        }
-        var windowOrigin = CGPoint.zero
-        var windowSize = CGSize.zero
-        AXValueGetValue(posRef as! AXValue, .cgPoint, &windowOrigin)
-        AXValueGetValue(sizeRef as! AXValue, .cgSize, &windowSize)
-
-        // Get close button to calculate title bar height
-        guard let closeButton = getChildElement(of: windowElement, role: kAXCloseButtonSubrole as String) else {
-            return nil
-        }
-        var btnPosRef: CFTypeRef?
-        var btnSizeRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(closeButton, kAXPositionAttribute as CFString, &btnPosRef) == .success,
-              AXUIElementCopyAttributeValue(closeButton, kAXSizeAttribute as CFString, &btnSizeRef) == .success else {
-            return nil
-        }
-        var btnOrigin = CGPoint.zero
-        var btnSize = CGSize.zero
-        AXValueGetValue(btnPosRef as! AXValue, .cgPoint, &btnOrigin)
-        AXValueGetValue(btnSizeRef as! AXValue, .cgSize, &btnSize)
-
-        let gap = btnOrigin.y - windowOrigin.y
-        let titleBarHeight = 2 * gap + btnSize.height
-
-        return CGRect(x: windowOrigin.x, y: windowOrigin.y, width: windowSize.width, height: titleBarHeight)
-    }
-
-    private func getChildElement(of element: AXUIElement, role: String) -> AXUIElement? {
-        var childrenRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenRef) == .success,
-              let children = childrenRef as? [AXUIElement] else { return nil }
-
-        for child in children {
-            var subroleRef: CFTypeRef?
-            AXUIElementCopyAttributeValue(child, kAXSubroleAttribute as CFString, &subroleRef)
-            if let subrole = subroleRef as? String, subrole == role {
-                return child
-            }
-        }
-        return nil
     }
 
     func pause() {

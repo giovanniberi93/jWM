@@ -50,7 +50,7 @@ test:
 
 .PHONY: test-integration
 test-integration: build-test
-	./integration-tests/test-integration.sh
+	./integration-tests/test-integration.sh $(TEST)
 
 .PHONY: test-all
 test-all: test test-integration

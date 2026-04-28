@@ -103,7 +103,18 @@ FAIL=0
 FAILED_TESTS=()
 
 shopt -s nullglob
-for tc in "$ROOT"/integration-tests/test-cases/*.sh; do
+TEST_FILTER="${1:-}"
+if [ -n "$TEST_FILTER" ]; then
+    test_files=( "$ROOT"/integration-tests/test-cases/${TEST_FILTER}_*.sh )
+    if [ ${#test_files[@]} -eq 0 ]; then
+        red "ERROR: "
+        echo "no test matches '$TEST_FILTER' in integration-tests/test-cases/"
+        exit 1
+    fi
+else
+    test_files=( "$ROOT"/integration-tests/test-cases/*.sh )
+fi
+for tc in "${test_files[@]}"; do
     name=$(basename "$tc" .sh)
     echo
     cyan "▶ $name"

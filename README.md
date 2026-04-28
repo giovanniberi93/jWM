@@ -90,8 +90,6 @@ After pressing `⌘`+`<N>` or `⌘`+`⇧`+`<N>` to select an app, keep holding `
 
 Drag any window to the left or right screen edge to tile it. A preview overlay shows the target position.
 
-Double click on the title bar to make a window full screen.
-
 ## Troubleshooting
 
 ### Disable macOS built-in window tiling
