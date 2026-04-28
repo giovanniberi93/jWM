@@ -27,10 +27,11 @@ if [ ! -x "$JWM_BIN" ]; then
 fi
 
 sc=$(screen_count)
-if [ "$sc" -gt 1 ]; then
-    yellow "WARNING: "
-    echo "$sc screens detected — v0 only covers single-screen scenarios."
-    echo "Multi-screen behavior is NOT being verified by this run."
+cyan "Detected $sc screen(s)."
+echo
+if [ "$sc" -lt 2 ]; then
+    yellow "NOTE: "
+    echo "Only single-screen tests will run. Multi-screen tests under test-cases/multi-screen/ are skipped."
 fi
 
 # Disable auto-restore for victim apps so each test run starts clean
@@ -107,7 +108,13 @@ FAILED_TESTS=()
 shopt -s nullglob
 TEST_FILTER="${1:-}"
 if [ -n "$TEST_FILTER" ]; then
-    test_files=( "$ROOT"/integration-tests/test-cases/${TEST_FILTER}_*.sh )
+    # Filter searches both single- and multi-screen dirs. require_screens at
+    # the top of multi-screen tests turns a screen-count mismatch into a clean
+    # failure rather than a silent skip.
+    test_files=(
+        "$ROOT"/integration-tests/test-cases/${TEST_FILTER}_*.sh
+        "$ROOT"/integration-tests/test-cases/multi-screen/${TEST_FILTER}_*.sh
+    )
     if [ ${#test_files[@]} -eq 0 ]; then
         red "ERROR: "
         echo "no test matches '$TEST_FILTER' in integration-tests/test-cases/"
@@ -115,6 +122,9 @@ if [ -n "$TEST_FILTER" ]; then
     fi
 else
     test_files=( "$ROOT"/integration-tests/test-cases/*.sh )
+    if [ "$sc" -ge 2 ]; then
+        test_files+=( "$ROOT"/integration-tests/test-cases/multi-screen/*.sh )
+    fi
 fi
 for tc in "${test_files[@]}"; do
     name=$(basename "$tc" .sh)

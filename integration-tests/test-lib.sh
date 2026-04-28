@@ -32,9 +32,33 @@ expected_rect() {
     "$SCREEN_HELPER_BIN" expected-rect "$1"
 }
 
+expected_rect_on() {
+    ensure_screen_helper
+    "$SCREEN_HELPER_BIN" expected-rect-on "$1" "$2"
+}
+
 screen_count() {
     ensure_screen_helper
     "$SCREEN_HELPER_BIN" screen-count
+}
+
+# Index of the NSScreen containing the rect's center, or -1.
+screen_of_rect() {
+    ensure_screen_helper
+    "$SCREEN_HELPER_BIN" screen-of "$1" "$2" "$3" "$4"
+}
+
+# Self-guard for tests that need N screens. Used by tests under
+# test-cases/multi-screen/ so a direct filter run on a single-screen system
+# fails clearly instead of producing confusing assertion errors.
+require_screens() {
+    local needed="$1"
+    local actual
+    actual=$(screen_count)
+    if (( actual < needed )); then
+        echo "  requires $needed screens, found $actual" >&2
+        exit 1
+    fi
 }
 
 # --- Victim app management ----------------------------------------------------
