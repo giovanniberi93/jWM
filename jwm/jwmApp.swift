@@ -28,6 +28,13 @@ struct DualLogger {
 struct jwmApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
+    init() {
+        // When stdout is a pipe/file (e.g. `make test-integration` redirects to
+        // a log file), it block-buffers by default and the early startup lines
+        // never appear before the harness kills the process. Force line buffering.
+        setvbuf(stdout, nil, _IOLBF, 0)
+    }
+
     var body: some Scene {
         MenuBarExtra("jwm", image: "MenuBarIcon") {
             Button("Settings...") {
@@ -89,8 +96,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var accessibilityTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        if NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier!).count > 1 {
-            logger.info("Another instance is already running, quitting")
+        // Dev/debug and installed builds have different bundle ids but both
+        // register a global event tap, so any two running instances fight over
+        // hotkeys. Count across both ids and bail if anyone else is up.
+        let bundleIDs = ["com.giovanniberi93.jwm", "com.giovanniberi93.jwm.debug"]
+        let total = bundleIDs.reduce(0) { $0 + NSRunningApplication.runningApplications(withBundleIdentifier: $1).count }
+        if total > 1 {
+            logger.info("Another jwm instance is already running, quitting")
             NSApp.terminate(nil)
             return
         }

@@ -1,27 +1,40 @@
-SCHEME = jwm
 PROJECT = jwm.xcodeproj
 BUILD_DIR = build
 APP_NAME = jWM
 
+INSTALLED_BUNDLE_ID = com.giovanniberi93.jwm
+TEST_BUNDLE_ID = $(INSTALLED_BUNDLE_ID).debug
+TEST_NAME = jwm-debug
+TEST_BUILD_DIR = $(BUILD_DIR)/test-bundle
+
 .PHONY: build
 build:
-	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Debug -derivedDataPath $(BUILD_DIR) build
+	xcodebuild -project $(PROJECT) -scheme jwm -configuration Debug \
+		-derivedDataPath $(BUILD_DIR) build
+
+.PHONY: build-test
+build-test:
+	xcodebuild -project $(PROJECT) -scheme jwm -configuration Debug \
+		-derivedDataPath $(TEST_BUILD_DIR) \
+		PRODUCT_BUNDLE_IDENTIFIER=$(TEST_BUNDLE_ID) \
+		PRODUCT_NAME=$(TEST_NAME) \
+		INFOPLIST_KEY_CFBundleDisplayName=$(TEST_NAME) \
+		build
 
 .PHONY: dev
 dev: build
-	$(BUILD_DIR)/Build/Products/Debug/$(SCHEME).app/Contents/MacOS/$(SCHEME)
+	$(BUILD_DIR)/Build/Products/Debug/jwm.app/Contents/MacOS/jwm
 
 .PHONY: install
 install: build reset-accessibility-permissions
 	rm -rf /Applications/$(APP_NAME).app
-	ditto $(BUILD_DIR)/Build/Products/Debug/$(SCHEME).app /Applications/$(APP_NAME).app
+	ditto $(BUILD_DIR)/Build/Products/Debug/jwm.app /Applications/$(APP_NAME).app
 
 .PHONY: reset-accessibility-permissions
 reset-accessibility-permissions:
-	@# TCC caches stale code signatures after rebuild, causing Accessibility to silently fail
 	@if command -v tccutil >/dev/null 2>&1; then \
 		pkill -x jwm || true; \
-		tccutil reset Accessibility com.giovanniberi93.jwm; \
+		tccutil reset Accessibility $(INSTALLED_BUNDLE_ID); \
 	else \
 		echo "WARNING: tccutil not found, skipping TCC reset"; \
 	fi
@@ -35,7 +48,14 @@ uninstall:
 test:
 	xcodebuild -project $(PROJECT) -scheme jwmTests -configuration Debug -derivedDataPath $(BUILD_DIR) test
 
+.PHONY: test-integration
+test-integration: build-test
+	./integration-tests/test-integration.sh
+
+.PHONY: test-all
+test-all: test test-integration
+
 .PHONY: clean
 clean:
 	rm -rf $(BUILD_DIR)
-	rm -rf ~/Library/Developer/Xcode/DerivedData/$(SCHEME)-*
+	rm -rf ~/Library/Developer/Xcode/DerivedData/jwm-*
