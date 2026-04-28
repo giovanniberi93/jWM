@@ -43,8 +43,10 @@ cleanup() {
     pkill -x "$JWM_PRODUCT_NAME" 2>/dev/null || true
     osascript -e 'tell application "Terminal" to close every window saving no' 2>/dev/null || true
     osascript -e 'tell application "TextEdit" to close every document saving no' 2>/dev/null || true
+    osascript -e 'tell application "Notes" to close every window saving no' 2>/dev/null || true
     osascript -e 'tell application "Terminal" to quit'  2>/dev/null || true
     osascript -e 'tell application "TextEdit" to quit' 2>/dev/null || true
+    osascript -e 'tell application "Notes" to quit' 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -140,6 +142,7 @@ for tc in "${test_files[@]}"; do
     # Reset victim state between tests
     osascript -e 'tell application "Terminal" to close every window saving no' 2>/dev/null || true
     osascript -e 'tell application "TextEdit" to close every document saving no' 2>/dev/null || true
+    osascript -e 'tell application "Notes" to close every window saving no' 2>/dev/null || true
     sleep 0.1
 done
 
