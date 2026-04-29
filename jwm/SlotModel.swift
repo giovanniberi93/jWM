@@ -25,53 +25,46 @@ enum TilePosition: CustomStringConvertible {
     }
 }
 
-/// Tracks which apps occupy the full-screen slot on each display.
-/// Multiple apps can be fullscreen-sized simultaneously (e.g. one tiled, one
-/// just focused) so we keep an ordered list per display rather than a single PID.
+/// Tracks which apps are fullscreen-sized and on which display.
+/// One entry per pid; recency is captured by a monotonic seq so "next on
+/// display X" is a filter+max instead of an order-sensitive list.
 struct SlotState {
-    private var fullScreen: [CGDirectDisplayID: [pid_t]] = [:]
-
-    /// Primary fullscreen app for a display (last promoted). Returns nil if empty.
-    func fullScreen(forDisplay id: CGDirectDisplayID) -> pid_t? {
-        fullScreen[id]?.last
+    struct Entry: Equatable {
+        let displayID: CGDirectDisplayID
+        let seq: UInt64
     }
 
-    /// All fullscreen PIDs tracked on a display, newest last.
-    func allFullScreen(forDisplay id: CGDirectDisplayID) -> [pid_t] {
-        fullScreen[id] ?? []
+    private var entries: [pid_t: Entry] = [:]
+    private var nextSeq: UInt64 = 0
+
+    /// Insert or update the entry for `pid` with a fresh seq.
+    mutating func upsert(pid: pid_t, displayID: CGDirectDisplayID) {
+        nextSeq += 1
+        entries[pid] = Entry(displayID: displayID, seq: nextSeq)
     }
 
-    /// Add a PID to a display's fullscreen list (no-op if already present).
-    mutating func addFullScreen(_ pid: pid_t, forDisplay id: CGDirectDisplayID) {
-        var list = fullScreen[id] ?? []
-        if !list.contains(pid) {
-            list.append(pid)
-        }
-        fullScreen[id] = list
+    /// Remove the entry for `pid`. No-op if absent.
+    mutating func remove(pid: pid_t) {
+        entries.removeValue(forKey: pid)
     }
 
-    /// Clear the entire fullscreen list for a display.
-    mutating func clearDisplay(_ id: CGDirectDisplayID) {
-        fullScreen.removeValue(forKey: id)
+    /// True if `pid` has any tracked entry.
+    func contains(pid: pid_t) -> Bool {
+        entries[pid] != nil
     }
 
-    /// Remove a specific PID from all displays.
-    mutating func clearFullScreen(pid: pid_t) {
-        for id in fullScreen.keys {
-            fullScreen[id]?.removeAll { $0 == pid }
-            if fullScreen[id]?.isEmpty == true {
-                fullScreen.removeValue(forKey: id)
+    /// Most-recently-upserted pid on `display`, excluding `excluding`.
+    /// Nil if no other entry exists on this display.
+    func mostRecentFullScreen(forDisplay display: CGDirectDisplayID, excluding: pid_t) -> pid_t? {
+        var bestPid: pid_t?
+        var bestSeq: UInt64 = 0
+        for (pid, entry) in entries where pid != excluding && entry.displayID == display {
+            if entry.seq > bestSeq {
+                bestSeq = entry.seq
+                bestPid = pid
             }
         }
+        return bestPid
     }
 
-    /// Clear any entries holding PIDs of apps that are no longer running.
-    mutating func purgeDeadPids() {
-        for id in fullScreen.keys {
-            fullScreen[id]?.removeAll { NSRunningApplication(processIdentifier: $0) == nil }
-            if fullScreen[id]?.isEmpty == true {
-                fullScreen.removeValue(forKey: id)
-            }
-        }
-    }
 }

@@ -8,6 +8,10 @@ final class HotkeyManager {
     private var onFocus: ((String) -> Void)?
     private var onTile: ((TilePosition) -> Void)?
     private var onFocusTile: ((String, TilePosition) -> Void)?
+    /// Invoked immediately before any of the action callbacks above. Lets the
+    /// owner snapshot the current frontmost app's state before focus shifts
+    /// or tile geometry changes happen.
+    private var onBeforeAction: (() -> Void)?
     private var paused = false
 
     // Chord state: after cmd+N, waiting for either cmd release (focus only) or position key (tile)
@@ -37,14 +41,18 @@ final class HotkeyManager {
     /// - onFocus: called with app key (e.g. "app1" or "shiftApp1") on cmd release (focus only).
     /// - onTile: called with position for ctrl+cmd+h/l/j (tile current window).
     /// - onFocusTile: called with (slotKey, position) when position key pressed while cmd held (focus + tile).
+    /// - onBeforeAction: called immediately before any of the above. Use to
+    ///   capture the current frontmost app's state before focus/tile mutates it.
     func start(
         onFocus: @escaping (String) -> Void,
         onTile: @escaping (TilePosition) -> Void,
-        onFocusTile: @escaping (String, TilePosition) -> Void
+        onFocusTile: @escaping (String, TilePosition) -> Void,
+        onBeforeAction: @escaping () -> Void = {}
     ) {
         self.onFocus = onFocus
         self.onTile = onTile
         self.onFocusTile = onFocusTile
+        self.onBeforeAction = onBeforeAction
 
         let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
             | (1 << CGEventType.flagsChanged.rawValue)
@@ -93,6 +101,7 @@ final class HotkeyManager {
             if !flags.contains(.maskCommand) {
                 logger.info("cmd released, focus only: \(appKey)")
                 pendingAppKey = nil
+                onBeforeAction?()
                 onFocus?(appKey)
             }
             return Unmanaged.passRetained(event)
@@ -111,6 +120,7 @@ final class HotkeyManager {
             if let position = keyCodeToPosition[keyCode] {
                 logger.info("Chord complete: \(appKey) -> \(position)")
                 pendingAppKey = nil
+                onBeforeAction?()
                 onFocusTile?(appKey, position)
                 return nil
             }
@@ -129,6 +139,7 @@ final class HotkeyManager {
         // ctrl+cmd+h/l/j → tile current window
         if hasCmd && hasCtrl && !hasAlt {
             if let position = keyCodeToPosition[keyCode] {
+                onBeforeAction?()
                 onTile?(position)
                 return nil
             }

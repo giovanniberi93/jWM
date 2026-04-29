@@ -152,9 +152,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 logger.info("Focusing \(appKey) -> \(bundleID)")
                 AppFocuser.focusOrLaunch(bundleID: bundleID)
-                if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
-                    WindowTiler.promoteIfFullScreen(app: app)
-                }
+                // No explicit snapshot of the new app: NSWorkspace activation
+                // notification will fire and guardActivation handles it.
             },
             onTile: { position in
                 WindowTiler.tile(position)
@@ -179,6 +178,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                             WindowTiler.tile(position, app: app)
                         }
                     }
+                }
+            },
+            onBeforeAction: {
+                // Snapshot the current frontmost app right before any focus/tile
+                // action, so its fullscreen state is captured even when no
+                // NSWorkspace activation event would fire (e.g. ctrl+cmd+J on the
+                // already-focused app, followed immediately by a chord).
+                if let front = NSWorkspace.shared.frontmostApplication {
+                    WindowTiler.snapshotIfFullScreen(app: front)
                 }
             }
         )

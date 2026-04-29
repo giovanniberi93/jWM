@@ -2,138 +2,108 @@ import XCTest
 
 final class SlotStateTests: XCTestCase {
 
-    // MARK: - Basic add / read
+    // MARK: - upsert / contains
 
-    func testAddAndGetFullScreen() {
+    func testUpsertAndContains() {
         var slots = SlotState()
-        let displayID: CGDirectDisplayID = 1
-        let pid: pid_t = 42
-
-        slots.addFullScreen(pid, forDisplay: displayID)
-        XCTAssertEqual(slots.fullScreen(forDisplay: displayID), pid)
-        XCTAssertEqual(slots.allFullScreen(forDisplay: displayID), [pid])
+        slots.upsert(pid: 42, displayID: 1)
+        XCTAssertTrue(slots.contains(pid: 42))
+        XCTAssertFalse(slots.contains(pid: 99))
     }
 
-    func testFullScreenReturnsNewest() {
+    func testUpsertSamePidUpdatesDisplay() {
         var slots = SlotState()
-        let display: CGDirectDisplayID = 1
-        slots.addFullScreen(42, forDisplay: display)
-        slots.addFullScreen(99, forDisplay: display)
-        // fullScreen returns last (newest)
-        XCTAssertEqual(slots.fullScreen(forDisplay: display), 99)
-        XCTAssertEqual(slots.allFullScreen(forDisplay: display), [42, 99])
+        slots.upsert(pid: 42, displayID: 1)
+        slots.upsert(pid: 42, displayID: 2)
+
+        // Old display no longer carries the pid; new one does.
+        XCTAssertNil(slots.mostRecentFullScreen(forDisplay: 1, excluding: 0))
+        XCTAssertEqual(slots.mostRecentFullScreen(forDisplay: 2, excluding: 0), 42)
     }
 
-    // MARK: - No duplicates
+    // MARK: - remove
 
-    func testAddFullScreenNoDuplicates() {
+    func testRemove() {
         var slots = SlotState()
-        let display: CGDirectDisplayID = 1
-        slots.addFullScreen(42, forDisplay: display)
-        slots.addFullScreen(42, forDisplay: display)
-        XCTAssertEqual(slots.allFullScreen(forDisplay: display), [42])
+        slots.upsert(pid: 42, displayID: 1)
+        slots.remove(pid: 42)
+        XCTAssertFalse(slots.contains(pid: 42))
+        XCTAssertNil(slots.mostRecentFullScreen(forDisplay: 1, excluding: 0))
     }
 
-    // MARK: - Clear by display
-
-    func testClearDisplay() {
+    func testRemoveAbsentPidIsNoop() {
         var slots = SlotState()
-        let display: CGDirectDisplayID = 1
-        slots.addFullScreen(42, forDisplay: display)
-        slots.addFullScreen(99, forDisplay: display)
-
-        slots.clearDisplay(display)
-        XCTAssertNil(slots.fullScreen(forDisplay: display))
-        XCTAssertEqual(slots.allFullScreen(forDisplay: display), [])
+        slots.upsert(pid: 42, displayID: 1)
+        slots.remove(pid: 99) // not there
+        XCTAssertTrue(slots.contains(pid: 42))
     }
 
-    // MARK: - Clear by PID
+    // MARK: - mostRecentFullScreen ordering
 
-    func testClearFullScreenByPid() {
+    func testMostRecentReturnsHighestSeq() {
         var slots = SlotState()
-        let display1: CGDirectDisplayID = 1
-        let display2: CGDirectDisplayID = 2
-        let pid: pid_t = 42
+        slots.upsert(pid: 42, displayID: 1)
+        slots.upsert(pid: 99, displayID: 1)
+        slots.upsert(pid: 7, displayID: 1)
 
-        slots.addFullScreen(pid, forDisplay: display1)
-        slots.addFullScreen(pid, forDisplay: display2)
-        slots.clearFullScreen(pid: pid)
-
-        XCTAssertNil(slots.fullScreen(forDisplay: display1))
-        XCTAssertNil(slots.fullScreen(forDisplay: display2))
+        XCTAssertEqual(slots.mostRecentFullScreen(forDisplay: 1, excluding: 0), 7)
     }
 
-    func testClearFullScreenByPidPreservesOthers() {
+    func testMostRecentExcludesGivenPid() {
         var slots = SlotState()
-        let display: CGDirectDisplayID = 1
-        slots.addFullScreen(42, forDisplay: display)
-        slots.addFullScreen(99, forDisplay: display)
+        slots.upsert(pid: 42, displayID: 1)
+        slots.upsert(pid: 99, displayID: 1)
 
-        slots.clearFullScreen(pid: 42)
-        XCTAssertEqual(slots.allFullScreen(forDisplay: display), [99])
-        XCTAssertEqual(slots.fullScreen(forDisplay: display), 99)
+        XCTAssertEqual(slots.mostRecentFullScreen(forDisplay: 1, excluding: 99), 42)
     }
 
-    // MARK: - Multiple displays independent
-
-    func testMultipleDisplaysIndependent() {
+    func testMostRecentReupsertReorders() {
         var slots = SlotState()
-        let display1: CGDirectDisplayID = 1
-        let display2: CGDirectDisplayID = 2
+        slots.upsert(pid: 42, displayID: 1)
+        slots.upsert(pid: 99, displayID: 1)
+        // Re-upsert 42 → it becomes the newest.
+        slots.upsert(pid: 42, displayID: 1)
 
-        slots.addFullScreen(42, forDisplay: display1)
-        slots.addFullScreen(99, forDisplay: display2)
-
-        XCTAssertEqual(slots.fullScreen(forDisplay: display1), 42)
-        XCTAssertEqual(slots.fullScreen(forDisplay: display2), 99)
-
-        slots.clearDisplay(display1)
-        XCTAssertNil(slots.fullScreen(forDisplay: display1))
-        XCTAssertEqual(slots.fullScreen(forDisplay: display2), 99)
+        XCTAssertEqual(slots.mostRecentFullScreen(forDisplay: 1, excluding: 0), 42)
     }
 
-    // MARK: - Empty display returns nil / empty
-
-    func testEmptyDisplayReturnsNil() {
+    func testMostRecentEmptyReturnsNil() {
         let slots = SlotState()
-        XCTAssertNil(slots.fullScreen(forDisplay: 1))
-        XCTAssertEqual(slots.allFullScreen(forDisplay: 1), [])
+        XCTAssertNil(slots.mostRecentFullScreen(forDisplay: 1, excluding: 0))
     }
 
-    // MARK: - Cross-display move (clear + add)
-
-    func testMoveAcrossDisplays() {
+    func testMostRecentExcludingOnlyEntryReturnsNil() {
         var slots = SlotState()
-        let display1: CGDirectDisplayID = 1
-        let display2: CGDirectDisplayID = 2
-
-        slots.addFullScreen(42, forDisplay: display1)
-        // Simulate nextScreen: clear from all, add to new display
-        slots.clearFullScreen(pid: 42)
-        slots.addFullScreen(42, forDisplay: display2)
-
-        XCTAssertNil(slots.fullScreen(forDisplay: display1))
-        XCTAssertEqual(slots.fullScreen(forDisplay: display2), 42)
+        slots.upsert(pid: 42, displayID: 1)
+        XCTAssertNil(slots.mostRecentFullScreen(forDisplay: 1, excluding: 42))
     }
 
-    // MARK: - Bug scenario: second promote doesn't evict first
+    // MARK: - per-display isolation
 
-    func testPromoteSecondAppPreservesFirst() {
+    func testDisplaysAreIndependent() {
         var slots = SlotState()
-        let display: CGDirectDisplayID = 1
+        slots.upsert(pid: 42, displayID: 1)
+        slots.upsert(pid: 99, displayID: 2)
 
-        // kitty tiled fullscreen
-        slots.addFullScreen(42, forDisplay: display)
-        // WhatsApp focused, also fullscreen-sized — promoted
-        slots.addFullScreen(99, forDisplay: display)
+        XCTAssertEqual(slots.mostRecentFullScreen(forDisplay: 1, excluding: 0), 42)
+        XCTAssertEqual(slots.mostRecentFullScreen(forDisplay: 2, excluding: 0), 99)
+    }
 
-        // Both tracked
-        XCTAssertEqual(slots.allFullScreen(forDisplay: display), [42, 99])
+    // MARK: - test 12 scenario (ordered list survives displacement)
 
-        // Tile WhatsApp to half — clear it
-        slots.clearFullScreen(pid: 99)
-        // kitty still tracked
-        XCTAssertEqual(slots.allFullScreen(forDisplay: display), [42])
-        XCTAssertEqual(slots.fullScreen(forDisplay: display), 42)
+    func testOrderedListSurvivesDisplacement() {
+        // Three apps go fullscreen in order, then the newest is displaced
+        // (its entry removed). Next-most-recent should still be discoverable.
+        var slots = SlotState()
+        slots.upsert(pid: 1, displayID: 10)
+        slots.upsert(pid: 2, displayID: 10)
+        slots.upsert(pid: 3, displayID: 10)
+
+        // Displace pid 3 → only its entry is removed; pids 1 & 2 stay.
+        slots.remove(pid: 3)
+
+        // Next-most-recent fullscreen on display 10 (excluding the
+        // currently-tiling app, say pid 99) is pid 2.
+        XCTAssertEqual(slots.mostRecentFullScreen(forDisplay: 10, excluding: 99), 2)
     }
 }
