@@ -285,9 +285,9 @@ enum WindowTiler {
         let cgRect = Coords.rect(for: .fullScreen, on: targetScreen)
 
         let pid = app.processIdentifier
-        // Cross-screen moves need position first so macOS evaluates the resize
-        // against the target screen's bounds, not the source screen's.
-        WindowAX.setPosition(pid: pid, rect: cgRect, positionFirst: true)
+        // Cross-screen flag enables read-back-and-retry inside setPosition.
+        // macOS often clamps size to the source screen on a single 3-op pass.
+        WindowAX.setPosition(pid: pid, rect: cgRect, crossScreen: true)
         return targetScreen
     }
 }

@@ -32,10 +32,21 @@ enum WindowAX {
         return CGRect(origin: pos, size: size)
     }
 
-    /// Write position and size for the given app's window.
-    /// `positionFirst: true` is required for cross-screen moves so macOS evaluates
-    /// the resize against the target screen's bounds, not the source screen's.
-    static func setPosition(pid: pid_t, rect: CGRect, positionFirst: Bool = false) {
+    /// Write position and size for the given app's window using a 3-op sequence
+    /// (size → position → size). Setting size first avoids macOS clamping
+    /// position to keep the old frame on-screen; the trailing size write
+    /// corrects any clamp that happened on the first size write.
+    ///
+    /// `crossScreen: true` enables read-back-and-retry: after the first 3-op
+    /// the window's actual rect is compared to `rect`; on mismatch the 3-op
+    /// is retried immediately, and if still wrong, scheduled once more on the
+    /// main queue 25ms later. macOS doesn't always re-evaluate which NSScreen
+    /// owns a window between consecutive AX writes, so size on the second
+    /// screen can stay clamped to the source screen's bounds; the 25ms gap
+    /// gives the system time to update the screen association.
+    /// Same approach as Rectangle (AccessibilityElement.setFrame +
+    /// WindowManager.executeTask).
+    static func setPosition(pid: pid_t, rect: CGRect, crossScreen: Bool = false) {
         let appRef = AXUIElementCreateApplication(pid)
 
         // Some apps (e.g. Spotify/Electron) set AXEnhancedUserInterface=true,
@@ -67,6 +78,9 @@ enum WindowAX {
                 if AXUIElementCopyAttributeNames(appRef, &names) == .success, let names = names as? [String] {
                     logger.info("Available attributes: \(names)")
                 }
+                if hadEnhancedUI {
+                    AXUIElementSetAttributeValue(appRef, enhancedUIKey, kCFBooleanTrue)
+                }
                 return
             }
         }
@@ -76,53 +90,77 @@ enum WindowAX {
         let label = NSRunningApplication(processIdentifier: pid)?.localizedName ?? "pid=\(pid)"
         logger.info("Setting \(label) window to \(rect.debugDescription)")
 
-        var position = CGPoint(x: rect.origin.x, y: rect.origin.y)
+        applySizePositionSize(axWindow: axWindow, rect: rect)
+
+        // Same-screen path: nothing more to do; clamp doesn't apply.
+        if !crossScreen || rectMatches(axWindow: axWindow, target: rect) {
+            if hadEnhancedUI {
+                AXUIElementSetAttributeValue(appRef, enhancedUIKey, kCFBooleanTrue)
+            }
+            return
+        }
+
+        // Immediate retry: sometimes a second 3-op clears the clamp.
+        logger.info("Cross-screen: rect mismatch after first apply — retrying immediately")
+        applySizePositionSize(axWindow: axWindow, rect: rect)
+
+        if rectMatches(axWindow: axWindow, target: rect) {
+            if hadEnhancedUI {
+                AXUIElementSetAttributeValue(appRef, enhancedUIKey, kCFBooleanTrue)
+            }
+            return
+        }
+
+        // Delayed retry on main queue. AX writes are safest from main, and the
+        // 25ms gap lets macOS update which NSScreen owns the window so the
+        // size write isn't clamped to the source screen any more.
+        // EnhancedUI restore is deferred to the end of the delayed block so
+        // the final write happens with animations still off.
+        logger.info("Cross-screen: rect still mismatched — scheduling 25ms retry")
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(25)) {
+            applySizePositionSize(axWindow: axWindow, rect: rect)
+            if !rectMatches(axWindow: axWindow, target: rect) {
+                logger.info("Cross-screen: rect still wrong after delayed retry")
+            }
+            if hadEnhancedUI {
+                AXUIElementSetAttributeValue(appRef, enhancedUIKey, kCFBooleanTrue)
+            }
+        }
+    }
+
+    /// 3-op size → position → size. Used by `setPosition` and its retry path.
+    private static func applySizePositionSize(axWindow: AXUIElement, rect: CGRect) {
         var size = CGSize(width: rect.width, height: rect.height)
+        var position = CGPoint(x: rect.origin.x, y: rect.origin.y)
 
-        if positionFirst {
-            // Cross-screen: position → size → position → size (4 ops).
-            //
-            // macOS clamps each AX attribute against the window's current screen.
-            // Neither size-first nor position-first alone works for both directions:
-            //   - Small→big screen: size-first clamps the larger size to the small screen.
-            //   - Big→small screen: position-first clamps position because the oversized
-            //     window overflows the small screen.
-            // The 4-op sequence handles both: first pos/size gets us roughly right,
-            // second pos/size corrects whatever macOS clamped in the first pass.
-            //
-            // History: this was added, then removed in e1e1f77 because it broke
-            // some other flow. Re-added because without it, windows don't fill the
-            // target screen when moving between screens of different sizes. If this
-            // causes problems again, fix the other flow — don't remove the 4th op.
-            if let posValue = AXValueCreate(.cgPoint, &position) {
-                AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
-            }
-            if let sizeValue = AXValueCreate(.cgSize, &size) {
-                AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
-            }
-            if let posValue = AXValueCreate(.cgPoint, &position) {
-                AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
-            }
-            if let sizeValue = AXValueCreate(.cgSize, &size) {
-                AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
-            }
-        } else {
-            // Same-screen: size → position → size. Setting size first avoids
-            // macOS clamping the position to keep the old frame on screen.
-            if let sizeValue = AXValueCreate(.cgSize, &size) {
-                AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
-            }
-            if let posValue = AXValueCreate(.cgPoint, &position) {
-                AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
-            }
-            if let sizeValue = AXValueCreate(.cgSize, &size) {
-                AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
-            }
+        if let sizeValue = AXValueCreate(.cgSize, &size) {
+            AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
         }
+        if let posValue = AXValueCreate(.cgPoint, &position) {
+            AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posValue)
+        }
+        if let sizeValue = AXValueCreate(.cgSize, &size) {
+            AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
+        }
+    }
 
-        if hadEnhancedUI {
-            AXUIElementSetAttributeValue(appRef, enhancedUIKey, kCFBooleanTrue)
+    /// Read window's current rect and compare to `target` within 1px on every
+    /// component. Returns true if unreadable (don't loop forever on AX errors).
+    private static func rectMatches(axWindow: AXUIElement, target: CGRect, tolerance: CGFloat = 1) -> Bool {
+        var posRef: CFTypeRef?
+        var sizeRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axWindow, kAXPositionAttribute as CFString, &posRef) == .success,
+              AXUIElementCopyAttributeValue(axWindow, kAXSizeAttribute as CFString, &sizeRef) == .success else {
+            return true
         }
+        var pos = CGPoint.zero
+        var size = CGSize.zero
+        AXValueGetValue(posRef as! AXValue, .cgPoint, &pos)
+        AXValueGetValue(sizeRef as! AXValue, .cgSize, &size)
+        return abs(pos.x - target.origin.x) <= tolerance
+            && abs(pos.y - target.origin.y) <= tolerance
+            && abs(size.width - target.width) <= tolerance
+            && abs(size.height - target.height) <= tolerance
     }
 
     /// Poll briefly and re-tile if the app restores its own window state.

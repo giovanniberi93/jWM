@@ -1,3 +1,5 @@
 # TODO
 
-- improve fullscreen logic
+- improve fullscreen stack logic
+- single screen tests on non-primary screen
+- drag&drop integr tests

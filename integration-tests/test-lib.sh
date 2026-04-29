@@ -280,6 +280,34 @@ assert_rect_stable() {
     return 0
 }
 
+# Strict rect assertion with absolute px tolerance on every component.
+# Use when TOL_SIZE_PCT (15%) is too loose — e.g. cross-screen fullscreen
+# checks where a window that's clearly visibly off-full would still pass
+# the percentage check. Default tol = 5px; override via 6th arg.
+assert_rect_exact() {
+    local pid="$1" ex="$2" ey="$3" ew="$4" eh="$5" tol="${6:-5}"
+    local deadline=$(($(date +%s) + 1))
+    local last="" ax ay aw ah dx dy dw dh
+    while (( $(date +%s) <= deadline )); do
+        last=$(victim_get_rect "$pid" 2>/dev/null || echo "")
+        if [ -n "$last" ]; then
+            read -r ax ay aw ah <<<"$last"
+            if [[ "$ax" =~ ^-?[0-9]+$ && "$ay" =~ ^-?[0-9]+$ && "$aw" =~ ^[0-9]+$ && "$ah" =~ ^[0-9]+$ ]]; then
+                dx=$(( ax - ex )); dy=$(( ay - ey ))
+                dw=$(( aw - ew )); dh=$(( ah - eh ))
+                dx=${dx#-}; dy=${dy#-}; dw=${dw#-}; dh=${dh#-}
+                if (( dx <= tol && dy <= tol && dw <= tol && dh <= tol )); then
+                    return 0
+                fi
+            fi
+        fi
+        sleep 0.05
+    done
+    echo "  expected (±${tol}px): $ex $ey $ew $eh" >&2
+    echo "  actual:               ${last:-<unreadable>}" >&2
+    return 1
+}
+
 assert_frontmost() {
     local expected_bundle="$1"
     local actual
