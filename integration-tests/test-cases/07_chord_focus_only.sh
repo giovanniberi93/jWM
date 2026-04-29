@@ -4,26 +4,26 @@
 set -euo pipefail
 source "$ROOT/integration-tests/test-lib.sh"
 
-# Make sure Terminal exists with a known rect, but is NOT frontmost
-victim_launch com.apple.Terminal
-term_pid=$(victim_get_pid com.apple.Terminal)
-victim_set_rect "$term_pid" 250 250 600 400
+# Make sure stub1 exists with a known rect, but is NOT frontmost
+victim_launch com.giovanniberi93.jwm.stub1
+stub1_pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)
+victim_set_rect "$stub1_pid" 250 250 600 400
 sleep 0.1
 
 # Activate something else so we can detect the focus change
-victim_launch com.apple.TextEdit
-victim_activate com.apple.TextEdit
+victim_launch com.giovanniberi93.jwm.stub2
+victim_activate com.giovanniberi93.jwm.stub2
 
-# Snapshot Terminal's rect before chord
-before=$(victim_get_rect "$term_pid")
+# Snapshot stub1's rect before chord
+before=$(victim_get_rect "$stub1_pid")
 read -r bx by bw bh <<<"$before"
 
-# Trigger chord: cmd+1 release (Terminal = app1)
+# Trigger chord: cmd+1 release (stub1 = app1)
 post_chord_focus_only 1
 sleep 0.15
 
-# Terminal must now be frontmost
-assert_frontmost com.apple.Terminal || exit 1
+# stub1 must now be frontmost
+assert_frontmost com.giovanniberi93.jwm.stub1 || exit 1
 
-# Terminal's rect must NOT have moved
-assert_rect_stable "$term_pid" "$bx" "$by" "$bw" "$bh"
+# stub1's rect must NOT have moved
+assert_rect_stable "$stub1_pid" "$bx" "$by" "$bw" "$bh"

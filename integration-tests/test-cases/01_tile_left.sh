@@ -3,9 +3,9 @@
 set -euo pipefail
 source "$ROOT/integration-tests/test-lib.sh"
 
-victim_launch com.apple.Terminal
-victim_activate com.apple.Terminal
-pid=$(victim_get_pid com.apple.Terminal)
+victim_launch com.giovanniberi93.jwm.stub1
+victim_activate com.giovanniberi93.jwm.stub1
+pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)
 
 # Start at a non-half rect so we can detect a no-op
 victim_set_rect "$pid" 200 200 600 400

@@ -5,34 +5,34 @@
 set -euo pipefail
 source "$ROOT/integration-tests/test-lib.sh"
 
-# 1. Terminal full-screen
-victim_launch com.apple.Terminal
-victim_activate com.apple.Terminal
-term_pid=$(victim_get_pid com.apple.Terminal)
-victim_set_rect "$term_pid" 300 300 500 350
+# 1. stub1 full-screen
+victim_launch com.giovanniberi93.jwm.stub1
+victim_activate com.giovanniberi93.jwm.stub1
+stub1_pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)
+victim_set_rect "$stub1_pid" 300 300 500 350
 sleep 0.1
 post_tile_current j
 read -r fx fy fw fh <<<"$(expected_rect full)"
-assert_rect_approx "$term_pid" "$fx" "$fy" "$fw" "$fh" || {
-    echo "  setup failed: Terminal did not go full" >&2
+assert_rect_approx "$stub1_pid" "$fx" "$fy" "$fw" "$fh" || {
+    echo "  setup failed: stub1 did not go full" >&2
     exit 1
 }
 
-# 2. TextEdit → left half. Terminal should auto-shrink to right.
-victim_launch com.apple.TextEdit
-victim_activate com.apple.TextEdit
-te_pid=$(victim_get_pid com.apple.TextEdit)
-victim_set_rect "$te_pid" 400 400 500 350
+# 2. stub2 → left half. stub1 should auto-shrink to right.
+victim_launch com.giovanniberi93.jwm.stub2
+victim_activate com.giovanniberi93.jwm.stub2
+stub2_pid=$(victim_get_pid com.giovanniberi93.jwm.stub2)
+victim_set_rect "$stub2_pid" 400 400 500 350
 sleep 0.1
 post_tile_current h
 
-# Verify TextEdit left
+# Verify stub2 left
 read -r lx ly lw lh <<<"$(expected_rect left)"
-assert_rect_approx "$te_pid" "$lx" "$ly" "$lw" "$lh" || {
-    echo "  TextEdit did not tile left" >&2
+assert_rect_approx "$stub2_pid" "$lx" "$ly" "$lw" "$lh" || {
+    echo "  stub2 did not tile left" >&2
     exit 1
 }
 
-# Verify Terminal displaced to right
+# Verify stub1 displaced to right
 read -r rx ry rw rh <<<"$(expected_rect right)"
-assert_rect_approx "$term_pid" "$rx" "$ry" "$rw" "$rh"
+assert_rect_approx "$stub1_pid" "$rx" "$ry" "$rw" "$rh"

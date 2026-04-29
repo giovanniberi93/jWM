@@ -34,20 +34,17 @@ if [ "$sc" -lt 2 ]; then
     echo "Only single-screen tests will run. Multi-screen tests under test-cases/multi-screen/ are skipped."
 fi
 
-# Disable auto-restore for victim apps so each test run starts clean
-defaults write -app TextEdit NSQuitAlwaysKeepsWindows -bool false 2>/dev/null || true
-defaults write -app Terminal NSQuitAlwaysKeepsWindows -bool false 2>/dev/null || true
+STUB1_BUNDLE="com.giovanniberi93.jwm.stub1"
+STUB2_BUNDLE="com.giovanniberi93.jwm.stub2"
+STUB3_BUNDLE="com.giovanniberi93.jwm.stub3"
 
 cleanup() {
     echo
     yellow "Cleaning up..."
     pkill -x "$JWM_PRODUCT_NAME" 2>/dev/null || true
-    osascript -e 'tell application "Terminal" to close every window saving no' 2>/dev/null || true
-    osascript -e 'tell application "TextEdit" to close every document saving no' 2>/dev/null || true
-    osascript -e 'tell application "Notes" to close every window saving no' 2>/dev/null || true
-    osascript -e 'tell application "Terminal" to quit'  2>/dev/null || true
-    osascript -e 'tell application "TextEdit" to quit' 2>/dev/null || true
-    osascript -e 'tell application "Notes" to quit' 2>/dev/null || true
+    osascript -e "tell application id \"$STUB1_BUNDLE\" to quit" 2>/dev/null || true
+    osascript -e "tell application id \"$STUB2_BUNDLE\" to quit" 2>/dev/null || true
+    osascript -e "tell application id \"$STUB3_BUNDLE\" to quit" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -55,12 +52,12 @@ trap cleanup EXIT
 pkill -x "$JWM_PRODUCT_NAME" 2>/dev/null || true
 sleep 0.15
 
-cyan "Booting jwm with test bindings (Terminal=app1, TextEdit=app2, Notes=app3)..."
+cyan "Booting jwm with test bindings (Stub1=app1, Stub2=app2, Stub3=app3)..."
 echo
 "$JWM_BIN" \
-    -app1_bundleID com.apple.Terminal \
-    -app2_bundleID com.apple.TextEdit \
-    -app3_bundleID com.apple.Notes \
+    -app1_bundleID "$STUB1_BUNDLE" \
+    -app2_bundleID "$STUB2_BUNDLE" \
+    -app3_bundleID "$STUB3_BUNDLE" \
     >"$JWM_LOG" 2>&1 &
 JWM_PID=$!
 
@@ -149,11 +146,12 @@ for tc in "${test_files[@]}"; do
         FAIL=$((FAIL + 1))
         FAILED_TESTS+=("$name")
     fi
-    # Reset victim state between tests
-    osascript -e 'tell application "Terminal" to close every window saving no' 2>/dev/null || true
-    osascript -e 'tell application "TextEdit" to close every document saving no' 2>/dev/null || true
-    osascript -e 'tell application "Notes" to close every window saving no' 2>/dev/null || true
-    sleep 0.1
+    # Reset victim state between tests: quit stubs so the next test's
+    # victim_launch starts from a known one-window cold state.
+    osascript -e "tell application id \"$STUB1_BUNDLE\" to quit" 2>/dev/null || true
+    osascript -e "tell application id \"$STUB2_BUNDLE\" to quit" 2>/dev/null || true
+    osascript -e "tell application id \"$STUB3_BUNDLE\" to quit" 2>/dev/null || true
+    sleep 0.2
 done
 
 echo

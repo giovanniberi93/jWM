@@ -48,8 +48,12 @@ uninstall:
 test:
 	xcodebuild -project $(PROJECT) -scheme jwmTests -configuration Debug -derivedDataPath $(BUILD_DIR) test
 
+.PHONY: build-test-stubs
+build-test-stubs:
+	./integration-tests/stubs/build.sh
+
 .PHONY: test-integration
-test-integration: build-test
+test-integration: build-test build-test-stubs
 	./integration-tests/test-integration.sh $(TEST)
 
 .PHONY: test-all

@@ -6,13 +6,13 @@
 set -euo pipefail
 source "$ROOT/integration-tests/test-lib.sh"
 
-victim_launch com.apple.Terminal
-victim_launch com.apple.TextEdit
-victim_launch com.apple.Notes
+victim_launch com.giovanniberi93.jwm.stub1
+victim_launch com.giovanniberi93.jwm.stub2
+victim_launch com.giovanniberi93.jwm.stub3
 
-term_pid=$(victim_get_pid com.apple.Terminal)
-te_pid=$(victim_get_pid com.apple.TextEdit)
-notes_pid=$(victim_get_pid com.apple.Notes)
+stub1_pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)
+stub2_pid=$(victim_get_pid com.giovanniberi93.jwm.stub2)
+stub3_pid=$(victim_get_pid com.giovanniberi93.jwm.stub3)
 
 read -r fx fy fw fh <<<"$(expected_rect full)"
 read -r lx ly lw lh <<<"$(expected_rect left)"
@@ -20,41 +20,41 @@ read -r rx ry rw rh <<<"$(expected_rect right)"
 
 # Mirrors test 11's natively-zoomed setup. Three sequential activations let
 # defocus-promote on each transition add the prior frontmost to the slot.
-victim_activate com.apple.Terminal
-victim_set_rect "$term_pid" "$fx" "$fy" "$fw" "$fh"
+victim_activate com.giovanniberi93.jwm.stub1
+victim_set_rect "$stub1_pid" "$fx" "$fy" "$fw" "$fh"
 sleep 0.6
 
-victim_activate com.apple.TextEdit
-victim_set_rect "$te_pid" "$fx" "$fy" "$fw" "$fh"
+victim_activate com.giovanniberi93.jwm.stub2
+victim_set_rect "$stub2_pid" "$fx" "$fy" "$fw" "$fh"
 sleep 0.6
 
-victim_activate com.apple.Notes
-victim_set_rect "$notes_pid" "$fx" "$fy" "$fw" "$fh"
+victim_activate com.giovanniberi93.jwm.stub3
+victim_set_rect "$stub3_pid" "$fx" "$fy" "$fw" "$fh"
 sleep 0.6
 
-# Chord 1: focus Terminal + tile half-left. defocus-promote on Notes lands it
+# Chord 1: focus stub1 + tile half-left. defocus-promote on stub3 lands it
 # at the top of the fullscreen list; findDisplacementCandidate pops it.
 post_chord_focus_tile 1 h
 
-assert_rect_approx "$term_pid" "$lx" "$ly" "$lw" "$lh" || {
-    echo "  Terminal did not tile left" >&2
+assert_rect_approx "$stub1_pid" "$lx" "$ly" "$lw" "$lh" || {
+    echo "  stub1 did not tile left" >&2
     exit 1
 }
-assert_rect_approx "$notes_pid" "$rx" "$ry" "$rw" "$rh" || {
-    echo "  Notes did not displace right (top of list)" >&2
+assert_rect_approx "$stub3_pid" "$rx" "$ry" "$rw" "$rh" || {
+    echo "  stub3 did not displace right (top of list)" >&2
     exit 1
 }
 
-# Chord 2: focus Notes + tile half-left. Notes is no longer full; previous
-# frontmost (Terminal) is half, so neither gets re-added. List should still
-# carry TextEdit from the step-2 promotion — it pops next.
+# Chord 2: focus stub3 + tile half-left. stub3 is no longer full; previous
+# frontmost (stub1) is half, so neither gets re-added. List should still
+# carry stub2 from the step-2 promotion — it pops next.
 post_chord_focus_tile 3 h
 
-assert_rect_approx "$notes_pid" "$lx" "$ly" "$lw" "$lh" || {
-    echo "  Notes did not tile left on second chord" >&2
+assert_rect_approx "$stub3_pid" "$lx" "$ly" "$lw" "$lh" || {
+    echo "  stub3 did not tile left on second chord" >&2
     exit 1
 }
-assert_rect_approx "$te_pid" "$rx" "$ry" "$rw" "$rh" || {
-    echo "  TextEdit did not displace right (next in list)" >&2
+assert_rect_approx "$stub2_pid" "$rx" "$ry" "$rw" "$rh" || {
+    echo "  stub2 did not displace right (next in list)" >&2
     exit 1
 }

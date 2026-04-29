@@ -63,24 +63,12 @@ require_screens() {
 
 # --- Victim app management ----------------------------------------------------
 
-# Launch app by bundle id and wait up to 5s for its first window. If running
-# with no windows (typical between-tests state after close-every-window cleanup),
-# explicitly creates a new window via app-specific AppleScript.
+# Launch a stub victim app by bundle id and wait up to 5s for its first
+# window. Stubs always open a window on cold start; warm `open -b` triggers
+# applicationShouldHandleReopen which spawns one if none exist.
 victim_launch() {
     local bundle="$1"
     open -b "$bundle" >/dev/null 2>&1 || true
-
-    case "$bundle" in
-        com.apple.Terminal)
-            osascript -e 'tell application "Terminal" to if (count of windows) is 0 then do script ""' >/dev/null 2>&1 || true
-            ;;
-        com.apple.TextEdit)
-            osascript -e 'tell application "TextEdit" to if (count of documents) is 0 then make new document' >/dev/null 2>&1 || true
-            ;;
-        com.apple.Notes)
-            osascript -e 'tell application "Notes" to activate' >/dev/null 2>&1 || true
-            ;;
-    esac
 
     local deadline=$(($(date +%s) + 5))
     while (( $(date +%s) < deadline )); do
@@ -119,6 +107,26 @@ tell application "System Events"
     return unix id of (first application process whose bundle identifier is "$bundle")
 end tell
 EOF
+}
+
+# Tell a running stub to spawn an additional window (SIGUSR1 handler in
+# integration-tests/stubs/jwm-stub.swift). Polls until window count grows.
+victim_add_window() {
+    local bundle="$1"
+    local pid before after
+    pid=$(victim_get_pid "$bundle")
+    before=$(osascript -e "tell application \"System Events\" to count of windows of (first application process whose bundle identifier is \"$bundle\")" 2>/dev/null || echo 0)
+    kill -USR1 "$pid"
+    local deadline=$(($(date +%s) + 2))
+    while (( $(date +%s) <= deadline )); do
+        after=$(osascript -e "tell application \"System Events\" to count of windows of (first application process whose bundle identifier is \"$bundle\")" 2>/dev/null || echo 0)
+        if (( after > before )); then
+            return 0
+        fi
+        sleep 0.05
+    done
+    echo "victim_add_window: $bundle window count did not grow ($before → $after)" >&2
+    return 1
 }
 
 # Read front window rect via AppleScript AX. Returns "x y w h" in CG coords
