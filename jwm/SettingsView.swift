@@ -81,6 +81,8 @@ struct SettingsView: View {
             TilingFocusReference()
 
             Spacer(minLength: 0)
+
+            VersionFooter()
         }
         .padding(.horizontal, 18)
         .padding(.top, 18)
@@ -794,5 +796,21 @@ private struct Kbd: View {
         } else {
             RoundedRectangle(cornerRadius: radius).stroke(.separator, lineWidth: 1)
         }
+    }
+}
+
+// MARK: - Version footer
+
+private struct VersionFooter: View {
+    var body: some View {
+        HStack {
+            Spacer()
+            Text("v\(BuildInfo.displayString)")
+                .font(.system(size: 10.5, weight: .regular, design: .monospaced))
+                .foregroundStyle(.tertiary)
+                .textSelection(.enabled)
+            Spacer()
+        }
+        .padding(.top, 12)
     }
 }
