@@ -86,6 +86,10 @@ After pressing `⌘`+`<N>` or `⌘`+`⇧`+`<N>` to select an app, keep holding `
 | `j` | Full screen |
 | `k` | Move to next screen (fullscreen) |
 
+### Launch all configured apps
+
+Press `⌃`+`⌘`+`a` to launch (or focus) every app bound to any slot, each tiled full screen. Useful at system startup to bring up your full workspace in one keystroke.
+
 ### Mouse support
 
 Drag any window to the left or right screen edge to tile it. A preview overlay shows the target position.

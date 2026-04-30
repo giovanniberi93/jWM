@@ -180,6 +180,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 }
             },
+            onLaunchAll: {
+                AppFocuser.launchAllConfigured()
+            },
             onBeforeAction: {
                 // Snapshot the current frontmost app right before any focus/tile
                 // action, so its fullscreen state is captured even when no

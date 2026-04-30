@@ -8,6 +8,7 @@ final class HotkeyManager {
     private var onFocus: ((String) -> Void)?
     private var onTile: ((TilePosition) -> Void)?
     private var onFocusTile: ((String, TilePosition) -> Void)?
+    private var onLaunchAll: (() -> Void)?
     /// Invoked immediately before any of the action callbacks above. Lets the
     /// owner snapshot the current frontmost app's state before focus shifts
     /// or tile geometry changes happen.
@@ -47,11 +48,13 @@ final class HotkeyManager {
         onFocus: @escaping (String) -> Void,
         onTile: @escaping (TilePosition) -> Void,
         onFocusTile: @escaping (String, TilePosition) -> Void,
+        onLaunchAll: @escaping () -> Void = {},
         onBeforeAction: @escaping () -> Void = {}
     ) {
         self.onFocus = onFocus
         self.onTile = onTile
         self.onFocusTile = onFocusTile
+        self.onLaunchAll = onLaunchAll
         self.onBeforeAction = onBeforeAction
 
         let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
@@ -141,6 +144,12 @@ final class HotkeyManager {
             if let position = keyCodeToPosition[keyCode] {
                 onBeforeAction?()
                 onTile?(position)
+                return nil
+            }
+            // ctrl+cmd+a → launch/focus all configured apps
+            if keyCode == Int64(kVK_ANSI_A) {
+                logger.info("Launch-all chord triggered")
+                onLaunchAll?()
                 return nil
             }
             // ctrl+cmd+b → debug marker in logs

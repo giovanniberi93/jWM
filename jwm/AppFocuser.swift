@@ -23,6 +23,34 @@ enum AppFocuser {
         }
     }
 
+    /// Launch (or focus) every app configured in any slot, tiling each
+    /// fullscreen. Used by the "launch all" chord to bring up a startup
+    /// workspace in one keystroke. Already-running apps are also fullscreened.
+    static func launchAllConfigured() {
+        let defaults = UserDefaults.standard
+        var seen = Set<String>()
+        for slot in 0...9 {
+            for prefix in ["app\(slot)", "shiftApp\(slot)"] {
+                let bundleID = defaults.string(forKey: "\(prefix)_bundleID") ?? ""
+                guard !bundleID.isEmpty, seen.insert(bundleID).inserted else { continue }
+                logger.info("Launch-all: \(bundleID)")
+                if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first,
+                   appHasWindows(pid: app.processIdentifier) {
+                    WindowTiler.tile(.fullScreen, app: app)
+                    app.activate()
+                } else {
+                    launchAndWaitForWindow(bundleID: bundleID) { app in
+                        WindowTiler.tile(.fullScreen, app: app)
+                        app.activate()
+                        WindowAX.guardPosition(pid: app.processIdentifier) {
+                            WindowTiler.tile(.fullScreen, app: app)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// Launch an app and wait for its window to appear, then call completion on the main thread.
     static func launchAndWaitForWindow(
         bundleID: String,
