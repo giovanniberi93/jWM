@@ -69,12 +69,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         }
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 450),
-            styleMask: [.titled, .closable],
+            contentRect: NSRect(x: 0, y: 0, width: 760, height: 540),
+            styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "jWM Settings"
+        window.titlebarAppearsTransparent = true
         window.contentView = NSHostingView(rootView: SettingsView())
         window.center()
         window.isReleasedWhenClosed = false
