@@ -485,8 +485,8 @@ private struct NextScreenGlyph: View {
     var body: some View {
         let w = size.width
         let h = size.height
-        let stroke = active ? accent : Color.secondary
-        let fill = active ? accent : Color.clear
+        let stroke = active ? Color.secondary.opacity(0.5) : Color.secondary
+        let fill = active ? accent.opacity(0.6) : Color.clear
 
         let screenW = (w - 3) / 2 - 1
         let screenH = h - 6
@@ -672,7 +672,7 @@ private struct TilingFocusReference: View {
 
     private var tier2: some View {
         VStack(alignment: .leading, spacing: 0) {
-            tierLabel("2 · Launch every bound app")
+            tierLabel("2 · Launch all apps")
             HStack(spacing: 10) {
                 HStack(spacing: 3) {
                     Kbd("⌃"); plus; Kbd("⌘"); plus; Kbd("A")
