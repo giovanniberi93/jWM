@@ -36,41 +36,53 @@ private func appNameKey(slot: Int, shifted: Bool) -> String {
 
 // MARK: - Root
 
+struct ContentHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 struct SettingsView: View {
+    var onContentHeightChange: ((CGFloat) -> Void)? = nil
+
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var macOSTilingEnabled = Self.isMacOSTilingEnabled()
     @State private var showResetConfirm = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("General")
+            VStack(alignment: .leading, spacing: 0) {
+                sectionHeader("General")
+                    .padding(.bottom, 10)
+
+                VStack(spacing: 6) {
+                    LaunchAtLoginRow(
+                        isOn: launchAtLogin,
+                        setLaunchAtLogin: setLaunchAtLogin
+                    )
+                    EdgeTilingRow(
+                        macOSTilingEnabled: macOSTilingEnabled,
+                        openSettings: openMacOSTilingSettings
+                    )
+                }
+                .padding(.bottom, 22)
+
+                HStack(alignment: .firstTextBaseline) {
+                    sectionHeader("App Bindings")
+                    Spacer()
+                    Button("Reset") { showResetConfirm = true }
+                        .controlSize(.small)
+                }
                 .padding(.bottom, 10)
 
-            VStack(spacing: 6) {
-                LaunchAtLoginRow(
-                    isOn: launchAtLogin,
-                    setLaunchAtLogin: setLaunchAtLogin
-                )
-                EdgeTilingRow(
-                    macOSTilingEnabled: macOSTilingEnabled,
-                    openSettings: openMacOSTilingSettings
-                )
+                VStack(spacing: 10) {
+                    KeyRow(modifiers: ["⌘"], shifted: false)
+                    KeyRow(modifiers: ["⌘", "⇧"], shifted: true)
+                }
+                .padding(.bottom, 22)
             }
-            .padding(.bottom, 22)
-
-            HStack(alignment: .firstTextBaseline) {
-                sectionHeader("App Bindings")
-                Spacer()
-                Button("Reset") { showResetConfirm = true }
-                    .controlSize(.small)
-            }
-            .padding(.bottom, 10)
-
-            VStack(spacing: 10) {
-                KeyRow(modifiers: ["⌘"], shifted: false)
-                KeyRow(modifiers: ["⌘", "⇧"], shifted: true)
-            }
-            .padding(.bottom, 22)
+            .fixedSize(horizontal: false, vertical: true)
 
             Rectangle()
                 .fill(Color(NSColor.separatorColor))
@@ -80,14 +92,21 @@ struct SettingsView: View {
 
             TilingFocusReference()
 
-            Spacer(minLength: 0)
-
             VersionFooter()
         }
         .padding(.horizontal, 18)
         .padding(.top, 18)
         .padding(.bottom, 22)
-        .frame(width: 800, height: 800)
+        .frame(width: 760)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(
+            GeometryReader { geo in
+                Color.clear.preference(key: ContentHeightKey.self, value: geo.size.height)
+            }
+        )
+        .onPreferenceChange(ContentHeightKey.self) { height in
+            onContentHeightChange?(height)
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             macOSTilingEnabled = Self.isMacOSTilingEnabled()
             launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -585,7 +604,58 @@ private struct ResultGlyph: View {
 }
 
 private struct TilingFocusReference: View {
+    @State private var isExpanded: Bool = false
+    @State private var isHovering: Bool = false
+
     var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            summaryRow
+            if isExpanded {
+                expandedPanel
+                    .transition(.opacity)
+                    .frame(maxWidth: .infinity, alignment: .top)
+            }
+        }
+        .animation(.easeInOut(duration: 0.22), value: isExpanded)
+    }
+
+    private var summaryRow: some View {
+        Button {
+            isExpanded.toggle()
+        } label: {
+            HStack(alignment: .center, spacing: 8) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                Image(systemName: "info.circle")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color(red: 10/255, green: 132/255, blue: 255/255))
+                Text("Keyboard shortcuts")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text("— focus, tile, and chord reference")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(isExpanded ? "Hide" : "Show")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isHovering ? Color.black.opacity(0.03) : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+    }
+
+    private var expandedPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
             VStack(alignment: .leading, spacing: 10) {

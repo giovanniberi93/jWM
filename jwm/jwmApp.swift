@@ -55,6 +55,7 @@ struct jwmApp: App {
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     static let shared = SettingsWindowController()
     private var window: NSWindow?
+    private var didInitialSize = false
     weak var hotkeyManager: HotkeyManager?
     weak var snapManager: SnapManager?
 
@@ -76,18 +77,53 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         )
         window.title = "jWM Settings"
         window.titlebarAppearsTransparent = true
-        window.contentView = NSHostingView(rootView: SettingsView())
-        window.center()
         window.isReleasedWhenClosed = false
         window.delegate = self
+
+        let view = SettingsView { [weak self, weak window] height in
+            guard let self, let window else { return }
+            self.applyContentHeight(height, window: window)
+        }
+        let hosting = NSHostingView(rootView: view)
+        hosting.frame = NSRect(x: 0, y: 0, width: 760, height: 1200)
+        hosting.layoutSubtreeIfNeeded()
+        let initialContentHeight = hosting.fittingSize.height
+        let initialFrame = window.frameRect(forContentRect: NSRect(x: 0, y: 0, width: 760, height: initialContentHeight))
+        window.setFrame(initialFrame, display: false)
+        window.contentView = hosting
+        didInitialSize = true
+        window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         self.window = window
     }
 
+    private func applyContentHeight(_ contentHeight: CGFloat, window: NSWindow) {
+        guard contentHeight > 1 else { return }
+        let targetContentSize = NSSize(width: 760, height: contentHeight)
+        let targetFrame = window.frameRect(forContentRect: NSRect(origin: .zero, size: targetContentSize))
+        let current = window.frame
+        guard abs(current.size.height - targetFrame.size.height) > 0.5 else { return }
+        var newFrame = current
+        let delta = targetFrame.size.height - current.size.height
+        newFrame.size = targetFrame.size
+        newFrame.origin.y -= delta
+        if didInitialSize {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.22
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                window.animator().setFrame(newFrame, display: true)
+            }
+        } else {
+            window.setFrame(newFrame, display: false)
+        }
+    }
+
     func windowWillClose(_ notification: Notification) {
         hotkeyManager?.resume()
         snapManager?.resume()
+        window = nil
+        didInitialSize = false
     }
 }
 
