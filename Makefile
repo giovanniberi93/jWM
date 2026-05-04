@@ -59,6 +59,18 @@ test-integration: build-test build-test-stubs
 .PHONY: test-all
 test-all: test test-integration
 
+.PHONY: stats
+stats:
+	@SRC="$$HOME/Library/Application Support/jwm/usage-stats.json"; \
+	if [ -f "$$SRC" ]; then \
+		printf 'window.JWM_DATA = ' > scripts/usage-stats.js; \
+		cat "$$SRC" >> scripts/usage-stats.js; \
+		printf ';\n' >> scripts/usage-stats.js; \
+	else \
+		echo 'window.JWM_DATA = {"hourly":{}};' > scripts/usage-stats.js; \
+	fi
+	@open scripts/viz.html
+
 .PHONY: clean
 clean:
 	rm -rf $(BUILD_DIR)

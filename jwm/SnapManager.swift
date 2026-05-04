@@ -151,6 +151,7 @@ final class SnapManager {
               let app = NSRunningApplication(processIdentifier: pid) else { return }
 
         logger.info("snap: TILING app=\(app.localizedName ?? "unknown") edge=\(edge) screen=\(NSScreen.screens.firstIndex(of: screen) ?? -1) cursor=\(NSEvent.mouseLocation.toCG)")
+        UsageStats.record(.mouseSnap)
         WindowTiler.tile(edge, app: app, targetScreen: screen)
     }
 

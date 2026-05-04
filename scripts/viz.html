@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>jwm usage stats</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="usage-stats.js"></script>
+<style>
+  body { font-family: -apple-system, sans-serif; margin: 24px; background: #fafafa; color: #222; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .meta { color: #666; font-size: 13px; margin-bottom: 24px; }
+  .chart-card { background: #fff; border: 1px solid #e2e2e2; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+  .chart-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .chart-sub { font-size: 12px; color: #888; margin-bottom: 8px; }
+  canvas { width: 100% !important; height: 180px !important; }
+</style>
+</head>
+<body>
+<h1>jwm usage — last 7 days</h1>
+<div class="meta" id="meta"></div>
+<div id="charts"></div>
+
+<script>
+(function () {
+  const data = (window.JWM_DATA && window.JWM_DATA.hourly) || {};
+  const kinds = ["focus", "tile", "focusTile", "mouseSnap"];
+  const colors = { focus: "#4e79a7", tile: "#f28e2b", focusTile: "#59a14f", mouseSnap: "#e15759" };
+
+  function pad(n) { return String(n).padStart(2, "0"); }
+  function dayKey(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+  function bucketKey(dk, h) { return `${dk}T${pad(h)}`; }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    days.push(d);
+  }
+
+  const fmtDay = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" });
+  const totalEvents = Object.values(data).reduce((acc, b) => acc + kinds.reduce((s, k) => s + (b[k] || 0), 0), 0);
+  document.getElementById("meta").textContent = `${totalEvents} events on record · ${Object.keys(data).length} hour buckets`;
+
+  const container = document.getElementById("charts");
+  const hours = Array.from({ length: 24 }, (_, h) => pad(h));
+
+  let yMax = 1;
+  const perDay = days.map(d => {
+    const dk = dayKey(d);
+    const series = {};
+    let dayTotal = 0;
+    for (const k of kinds) {
+      series[k] = hours.map((_, h) => {
+        const v = (data[bucketKey(dk, h)] || {})[k] || 0;
+        dayTotal += v;
+        return v;
+      });
+    }
+    for (let h = 0; h < 24; h++) {
+      const stacked = kinds.reduce((s, k) => s + series[k][h], 0);
+      if (stacked > yMax) yMax = stacked;
+    }
+    return { date: d, dk, series, total: dayTotal };
+  });
+
+  for (const day of perDay) {
+    const card = document.createElement("div");
+    card.className = "chart-card";
+    const title = document.createElement("div");
+    title.className = "chart-title";
+    title.textContent = fmtDay.format(day.date);
+    const sub = document.createElement("div");
+    sub.className = "chart-sub";
+    sub.textContent = `${day.total} events`;
+    const canvas = document.createElement("canvas");
+    card.append(title, sub, canvas);
+    container.append(card);
+
+    new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels: hours,
+        datasets: kinds.map(k => ({
+          label: k,
+          data: day.series[k],
+          backgroundColor: colors[k],
+          stack: "s",
+          borderWidth: 0,
+        })),
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: {
+          legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } },
+          tooltip: { mode: "index", intersect: false },
+        },
+        scales: {
+          x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } }, title: { display: true, text: "hour", font: { size: 11 } } },
+          y: { stacked: true, beginAtZero: true, suggestedMax: yMax, ticks: { precision: 0, font: { size: 10 } } },
+        },
+      },
+    });
+  }
+})();
+</script>
+</body>
+</html>

@@ -188,11 +188,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     return
                 }
                 logger.info("Focusing \(appKey) -> \(bundleID)")
+                UsageStats.record(.focus)
                 AppFocuser.focusOrLaunch(bundleID: bundleID)
                 // No explicit snapshot of the new app: NSWorkspace activation
                 // notification will fire and guardActivation handles it.
             },
             onTile: { position in
+                UsageStats.record(.tile)
                 WindowTiler.tile(position)
             },
             onFocusTile: { appKey, position in
@@ -202,6 +204,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     return
                 }
                 logger.info("Tile + focus \(appKey) -> \(bundleID) -> \(position)")
+                UsageStats.record(.focusTile)
                 if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first,
                    AppFocuser.appHasWindows(pid: app.processIdentifier) {
                     WindowTiler.tile(position, app: app)
