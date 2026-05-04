@@ -56,6 +56,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     static let shared = SettingsWindowController()
     private var window: NSWindow?
     private var didInitialSize = false
+    private var escMonitor: Any?
     weak var hotkeyManager: HotkeyManager?
     weak var snapManager: SnapManager?
 
@@ -96,6 +97,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         self.window = window
+        escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self, weak window] event in
+            guard event.keyCode == 53, let window, event.window === window else { return event }
+            window.close()
+            _ = self
+            return nil
+        }
     }
 
     private func applyContentHeight(_ contentHeight: CGFloat, window: NSWindow) {
@@ -119,9 +126,18 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         }
     }
 
+    func windowDidResignKey(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, window === self.window else { return }
+        window.close()
+    }
+
     func windowWillClose(_ notification: Notification) {
         hotkeyManager?.resume()
         snapManager?.resume()
+        if let escMonitor {
+            NSEvent.removeMonitor(escMonitor)
+        }
+        escMonitor = nil
         window = nil
         didInitialSize = false
     }
