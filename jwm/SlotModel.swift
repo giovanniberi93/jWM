@@ -67,4 +67,14 @@ struct SlotState {
         return bestPid
     }
 
+    /// Compact one-line snapshot for logs. Sorted by seq desc so most-recent
+    /// is first. Empty → "[]". Used at activation/displacement boundaries so
+    /// failure-only test logs still reveal what stale entries leaked from
+    /// prior tests.
+    func dump() -> String {
+        if entries.isEmpty { return "[]" }
+        let sorted = entries.sorted { $0.value.seq > $1.value.seq }
+        let parts = sorted.map { "pid=\($0.key)/disp=\($0.value.displayID)/seq=\($0.value.seq)" }
+        return "[" + parts.joined(separator: ", ") + "]"
+    }
 }

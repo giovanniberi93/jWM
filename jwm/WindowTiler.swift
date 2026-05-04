@@ -55,9 +55,10 @@ enum WindowTiler {
         // findDisplacementCandidate validates each candidate is still alive +
         // fullscreen-sized; stale entries are pruned in-place.
         let displayID = screen.displayID
+        logger.info("tile(\(targetApp.localizedName ?? "unknown"), pid=\(pid)): slots before displacement: \(slots.dump())")
         if let oppositePosition = position.opposite,
            let candidate = findDisplacementCandidate(excludingPid: pid, display: displayID, screen: screen) {
-            logger.info("Displacing \(appName(candidate)) to \(oppositePosition) on screen \(screenIndex) (display \(displayID))")
+            logger.info("Displacing \(appName(candidate)) (pid=\(candidate)) to \(oppositePosition) on screen \(screenIndex) (display \(displayID))")
             let oppositeRect = Coords.rect(for: oppositePosition, on: screen)
             WindowAX.setPosition(pid: candidate, rect: oppositeRect)
             // Don't touch slots here. The displaced app's `lastActiveApp`
@@ -149,13 +150,14 @@ enum WindowTiler {
     /// iteration; for freshly launched apps (e.g. via Spotlight) it retries
     /// until the window appears.
     static func guardActivation(app: NSRunningApplication) {
+        logger.info("guardActivation(\(app.localizedName ?? "unknown"), pid=\(app.processIdentifier)) prev=\(lastActiveApp.map { "\($0.localizedName ?? "unknown")/pid=\($0.processIdentifier)" } ?? "nil") slots=\(slots.dump())")
         // Before processing the new app, snapshot the one that just lost focus.
         // Catches apps that resized to fullscreen while already active (no
         // activation event would have fired for them); also removes the entry
         // for apps that just got displaced from full to half.
         if let prev = lastActiveApp, prev.processIdentifier != app.processIdentifier {
             if snapshotIfFullScreen(app: prev) {
-                logger.info("Recorded \(prev.localizedName ?? "unknown") as fullscreen on defocus")
+                logger.info("Recorded \(prev.localizedName ?? "unknown") (pid=\(prev.processIdentifier)) as fullscreen on defocus")
             }
         }
         lastActiveApp = app
@@ -203,9 +205,10 @@ enum WindowTiler {
             return false
         }
         if !slots.contains(pid: pid) {
-            logger.info("Recording \(name) as fullscreen on display \(screen.displayID)")
+            logger.info("Recording \(name) (pid=\(pid)) as fullscreen on display \(screen.displayID)")
         }
         slots.upsert(pid: pid, displayID: screen.displayID)
+        logger.info("Slots after upsert(\(name), pid=\(pid)): \(slots.dump())")
         return true
     }
 
@@ -222,19 +225,20 @@ enum WindowTiler {
 
         while let pid = slots.mostRecentFullScreen(forDisplay: display, excluding: excludingPid) {
             let name = appName(pid)
+            logger.info("findDisplacementCandidate: considering pid=\(pid) (\(name)) on display \(display)")
 
             guard NSRunningApplication(processIdentifier: pid) != nil else {
-                logger.info("Pruning \(name): process dead")
+                logger.info("Pruning \(name) (pid=\(pid)): process dead")
                 slots.remove(pid: pid)
                 continue
             }
             guard let windowRect = WindowAX.getRect(pid: pid) else {
-                logger.info("Pruning \(name): no window")
+                logger.info("Pruning \(name) (pid=\(pid)): no window")
                 slots.remove(pid: pid)
                 continue
             }
             guard windowRect.approxEquals(fullRect, tolerance: positionTolerance) else {
-                logger.info("Pruning \(name): window resized/moved")
+                logger.info("Pruning \(name) (pid=\(pid)): window=\(windowRect) full=\(fullRect)")
                 slots.remove(pid: pid)
                 continue
             }
