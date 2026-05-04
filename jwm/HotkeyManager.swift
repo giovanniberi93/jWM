@@ -18,12 +18,23 @@ final class HotkeyManager {
     // Chord state: after cmd+N, waiting for either cmd release (focus only) or position key (tile)
     private var pendingAppKey: String?
 
-    private let keyCodeToPosition: [Int64: TilePosition] = [
+    private let keyCodeToPositionLetters: [Int64: TilePosition] = [
         Int64(kVK_ANSI_H): .left,
         Int64(kVK_ANSI_L): .right,
         Int64(kVK_ANSI_J): .fullScreen,
         Int64(kVK_ANSI_K): .nextScreen,
     ]
+
+    private let keyCodeToPositionArrows: [Int64: TilePosition] = [
+        Int64(kVK_LeftArrow): .left,
+        Int64(kVK_RightArrow): .right,
+        Int64(kVK_UpArrow): .fullScreen,
+        Int64(kVK_DownArrow): .nextScreen,
+    ]
+
+    private var keyCodeToPosition: [Int64: TilePosition] {
+        UserDefaults.standard.bool(forKey: "useArrowKeys") ? keyCodeToPositionArrows : keyCodeToPositionLetters
+    }
 
     private let keyCodeToAppNumber: [Int64: Int] = [
         Int64(kVK_ANSI_0): 0,

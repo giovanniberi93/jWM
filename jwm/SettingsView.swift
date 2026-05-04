@@ -49,6 +49,7 @@ struct SettingsView: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var macOSTilingEnabled = Self.isMacOSTilingEnabled()
     @State private var showResetConfirm = false
+    @AppStorage("useArrowKeys") private var useArrowKeys: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -61,6 +62,7 @@ struct SettingsView: View {
                         isOn: launchAtLogin,
                         setLaunchAtLogin: setLaunchAtLogin
                     )
+                    UseArrowKeysRow(isOn: $useArrowKeys)
                     EdgeTilingRow(
                         macOSTilingEnabled: macOSTilingEnabled,
                         openSettings: openMacOSTilingSettings
@@ -90,7 +92,7 @@ struct SettingsView: View {
                 .padding(.horizontal, -18)
                 .padding(.bottom, 16)
 
-            TilingFocusReference()
+            TilingFocusReference(useArrowKeys: useArrowKeys)
 
             VersionFooter()
         }
@@ -184,6 +186,33 @@ private struct LaunchAtLoginRow: View {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .controlSize(.small)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 8).fill(.quinary))
+    }
+}
+
+private struct UseArrowKeysRow: View {
+    @Binding var isOn: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("Keys for tiling windows")
+                .font(.system(size: 13, weight: .medium))
+            StatusChip(
+                text: isOn ? "← ↑ ↓ →" : "H J K L",
+                fg: DS.blue,
+                bg: DS.blue.opacity(0.15)
+            )
+            Spacer(minLength: 0)
+            Picker("", selection: $isOn) {
+                Text("Vim mode").tag(false)
+                Text("Arrow keys").tag(true)
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .fixedSize()
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
@@ -604,8 +633,13 @@ private struct ResultGlyph: View {
 }
 
 private struct TilingFocusReference: View {
+    let useArrowKeys: Bool
     @State private var isExpanded: Bool = false
     @State private var isHovering: Bool = false
+
+    private var dirKeys: (left: String, right: String, full: String, next: String) {
+        useArrowKeys ? ("←", "→", "↑", "↓") : ("H", "L", "J", "K")
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -772,10 +806,10 @@ private struct TilingFocusReference: View {
                 ],
                 spacing: 6
             ) {
-                tileCell(keys: ["⌃", "⌘", "H"], glyph: .left, label: "Left half")
-                tileCell(keys: ["⌃", "⌘", "L"], glyph: .right, label: "Right half")
-                tileCell(keys: ["⌃", "⌘", "J"], glyph: .max, label: "Maximize")
-                tileCell(keys: ["⌃", "⌘", "K"], glyph: .next, label: "Next screen")
+                tileCell(keys: ["⌃", "⌘", dirKeys.left], glyph: .left, label: "Left half")
+                tileCell(keys: ["⌃", "⌘", dirKeys.right], glyph: .right, label: "Right half")
+                tileCell(keys: ["⌃", "⌘", dirKeys.full], glyph: .max, label: "Maximize")
+                tileCell(keys: ["⌃", "⌘", dirKeys.next], glyph: .next, label: "Next screen")
             }
         }
     }
@@ -804,7 +838,7 @@ private struct TilingFocusReference: View {
             HStack(spacing: 10) {
                 HStack(spacing: 3) {
                     Kbd("⌘"); plus; Kbd("N", dashed: true); plus
-                    Kbd("H"); slash; Kbd("L"); slash; Kbd("J"); slash; Kbd("K")
+                    Kbd(dirKeys.left); slash; Kbd(dirKeys.right); slash; Kbd(dirKeys.full); slash; Kbd(dirKeys.next)
                 }
                 arrow
                 Text(tier4Caption)
