@@ -54,7 +54,21 @@ struct SettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
-                sectionHeader("General")
+                HStack(alignment: .firstTextBaseline) {
+                    sectionHeader("App Bindings")
+                    Spacer()
+                    Button("Reset") { showResetConfirm = true }
+                        .controlSize(.small)
+                }
+                .padding(.bottom, 10)
+
+                VStack(spacing: 10) {
+                    KeyRow(modifiers: ["⌘"], shifted: false)
+                    KeyRow(modifiers: ["⌘", "⇧"], shifted: true)
+                }
+                .padding(.bottom, 22)
+
+                sectionHeader("Other options")
                     .padding(.bottom, 10)
 
                 VStack(spacing: 6) {
@@ -67,20 +81,6 @@ struct SettingsView: View {
                         macOSTilingEnabled: macOSTilingEnabled,
                         openSettings: openMacOSTilingSettings
                     )
-                }
-                .padding(.bottom, 22)
-
-                HStack(alignment: .firstTextBaseline) {
-                    sectionHeader("App Bindings")
-                    Spacer()
-                    Button("Reset") { showResetConfirm = true }
-                        .controlSize(.small)
-                }
-                .padding(.bottom, 10)
-
-                VStack(spacing: 10) {
-                    KeyRow(modifiers: ["⌘"], shifted: false)
-                    KeyRow(modifiers: ["⌘", "⇧"], shifted: true)
                 }
                 .padding(.bottom, 22)
             }
@@ -171,7 +171,7 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - General rows
+// MARK: - Other options rows
 
 private struct LaunchAtLoginRow: View {
     let isOn: Bool
