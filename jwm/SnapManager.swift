@@ -170,7 +170,7 @@ final class SnapManager {
     // MARK: - Accessibility helpers
 
     private func getWindowInfoUnderCursor(at point: CGPoint) -> (pid_t, CGPoint)? {
-        let systemWide = AXUIElementCreateSystemWide()
+        let systemWide = makeSystemWideAXElement()
 
         var elementRef: AXUIElement?
         guard AXUIElementCopyElementAtPosition(systemWide, Float(point.x), Float(point.y), &elementRef) == .success,
@@ -189,7 +189,7 @@ final class SnapManager {
     }
 
     private func getWindowOrigin(pid: pid_t) -> CGPoint? {
-        let appRef = AXUIElementCreateApplication(pid)
+        let appRef = makeApplicationAXElement(pid: pid)
         var windowRef: CFTypeRef?
         guard AXUIElementCopyAttributeValue(appRef, kAXFocusedWindowAttribute as CFString, &windowRef) == .success else {
             return nil

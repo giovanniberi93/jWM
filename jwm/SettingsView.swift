@@ -473,12 +473,17 @@ private struct Keycap: View {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.treatsFilePackagesAsDirectories = false
-        panel.begin { response in
+        let completion: (NSApplication.ModalResponse) -> Void = { response in
             guard response == .OK, let url = panel.url else { return }
             guard let bundle = Bundle(url: url),
                   let bid = bundle.bundleIdentifier else { return }
             bundleID = bid
             appName = FileManager.default.displayName(atPath: url.path)
+        }
+        if let parent = SettingsWindowController.shared.sheetParentWindow {
+            panel.beginSheetModal(for: parent, completionHandler: completion)
+        } else {
+            panel.begin(completionHandler: completion)
         }
     }
 }

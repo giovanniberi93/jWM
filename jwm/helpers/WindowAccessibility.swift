@@ -6,7 +6,7 @@ import os
 enum WindowAX {
     /// Read the current position and size of the frontmost window of the given app.
     static func getRect(pid: pid_t) -> CGRect? {
-        let appRef = AXUIElementCreateApplication(pid)
+        let appRef = makeApplicationAXElement(pid: pid)
         var windowRef: CFTypeRef?
         var result = AXUIElementCopyAttributeValue(appRef, kAXFocusedWindowAttribute as CFString, &windowRef)
         if result != .success {
@@ -47,7 +47,7 @@ enum WindowAX {
     /// Same approach as Rectangle (AccessibilityElement.setFrame +
     /// WindowManager.executeTask).
     static func setPosition(pid: pid_t, rect: CGRect, crossScreen: Bool = false) {
-        let appRef = AXUIElementCreateApplication(pid)
+        let appRef = makeApplicationAXElement(pid: pid)
 
         // Some apps (e.g. Spotify/Electron) set AXEnhancedUserInterface=true,
         // which causes animated window transitions. Temporarily disable it so

@@ -61,8 +61,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     weak var snapManager: SnapManager?
 
     func show() {
-        hotkeyManager?.pause()
-        snapManager?.pause()
+        // hotkeyManager?.pause()
+        // snapManager?.pause()
 
         if let window = window {
             window.makeKeyAndOrderFront(nil)
@@ -126,14 +126,19 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         }
     }
 
+    var sheetParentWindow: NSWindow? { window }
+
     func windowDidResignKey(_ notification: Notification) {
         guard let window = notification.object as? NSWindow, window === self.window else { return }
+        // Don't close while presenting a sheet (e.g. NSOpenPanel from app picker).
+        // The parent resigns key when the sheet attaches; we want it back when sheet ends.
+        guard window.attachedSheet == nil else { return }
         window.close()
     }
 
     func windowWillClose(_ notification: Notification) {
-        hotkeyManager?.resume()
-        snapManager?.resume()
+        // hotkeyManager?.resume()
+        // snapManager?.resume()
         if let escMonitor {
             NSEvent.removeMonitor(escMonitor)
         }
