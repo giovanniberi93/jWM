@@ -18,3 +18,4 @@ A macOS tiling window manager. Combines app focusing (like Raycast) and window t
 
 - **[Rectangle](https://rectangleapp.com/)** — similar macOS window manager, useful as reference for solving window management problems. Source available at `/Users/giovanni.beri/workspace/Rectangle` (clone from `https://github.com/rxhanson/rectangle` if needed).
 - **Integration-test stub apps.** Integration tests use stub victim apps under `integration-tests/stubs/` instead of real Apple apps, for determinism. Build via `make build-test-stubs`.
+- **Screen inspection helper.** Use `integration-tests/screen-info-helper.swift` to inspect connected screens when investigating or developing multi-screen behavior. Subcommands: `screen-count`, `expected-rect`, `expected-rect-on <idx> <left|right|full>`, `screen-of <x> <y> <w> <h>`. Reports the same NSScreen view (indices, visibleFrame-derived CG rects) that jwm sees at runtime.
