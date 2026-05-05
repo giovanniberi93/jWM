@@ -212,6 +212,8 @@ private struct UseArrowKeysRow: View {
             }
             .labelsHidden()
             .pickerStyle(.segmented)
+            .controlSize(.small)
+            .font(.system(size: 11))
             .fixedSize()
         }
         .padding(.horizontal, 12)
