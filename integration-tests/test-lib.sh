@@ -12,7 +12,13 @@ SCREEN_HELPER_BIN="$ROOT/build/test/screen-info-helper"
 TOL_POS=${TOL_POS:-20}
 TOL_SIZE_PCT=${TOL_SIZE_PCT:-15}
 
-color() { printf "\033[%sm%s\033[0m" "$1" "$2"; }
+color() {
+    if [ -n "${NO_COLOR:-}" ] || [ ! -t 1 ]; then
+        printf '%s' "$2"
+    else
+        printf "\033[%sm%s\033[0m" "$1" "$2"
+    fi
+}
 green()  { color 32 "$1"; }
 red()    { color 31 "$1"; }
 yellow() { color 33 "$1"; }
@@ -147,7 +153,15 @@ EOF
 
 victim_set_rect() {
     local pid="$1" x="$2" y="$3" w="$4" h="$5"
-    osascript <<EOF >/dev/null
+    # Retry on -1719 ("Invalid index"): System Events occasionally reports
+    # `front window` missing for a few hundred ms even when AX (used by jwm)
+    # sees the window. Polling for up to ~2s makes the harness resilient
+    # without hiding genuine "no window" failures.
+    local deadline=$(($(date +%s) + 2))
+    local err rc
+    while (( $(date +%s) <= deadline )); do
+        rc=0
+        err=$(osascript <<EOF 2>&1
 tell application "System Events"
     tell (first process whose unix id is $pid)
         set position of front window to {$x, $y}
@@ -155,6 +169,16 @@ tell application "System Events"
     end tell
 end tell
 EOF
+) || rc=$?
+        if [ "$rc" -eq 0 ]; then return 0; fi
+        if [[ "$err" != *"-1719"* ]]; then
+            echo "$err" >&2
+            return 1
+        fi
+        sleep 0.1
+    done
+    echo "victim_set_rect: gave up after retries; last error: $err" >&2
+    return 1
 }
 
 frontmost_bundle() {
