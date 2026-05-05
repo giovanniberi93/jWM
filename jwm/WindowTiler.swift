@@ -227,7 +227,13 @@ enum WindowTiler {
             let name = appName(pid)
             logger.info("findDisplacementCandidate: considering pid=\(pid) (\(name)) on display \(display)")
 
-            guard NSRunningApplication(processIdentifier: pid) != nil else {
+            let nsra = NSRunningApplication(processIdentifier: pid)
+            let posixAlive = (kill(pid, 0) == 0)
+            let inWorkspaceList = NSWorkspace.shared.runningApplications.contains { $0.processIdentifier == pid }
+            if nsra == nil {
+                logger.info("Liveness mismatch pid=\(pid): NSRunningApplication=nil posixAlive=\(posixAlive) inWorkspaceList=\(inWorkspaceList)")
+            }
+            guard nsra != nil else {
                 logger.info("Pruning \(name) (pid=\(pid)): process dead")
                 slots.remove(pid: pid)
                 continue
