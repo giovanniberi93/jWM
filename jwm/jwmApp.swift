@@ -51,19 +51,13 @@ struct jwmApp: App {
 }
 
 /// Manages a standalone settings window for the menu bar app.
-/// Pauses the global event tap while the window is open to avoid lag in system panels.
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     static let shared = SettingsWindowController()
     private var window: NSWindow?
     private var didInitialSize = false
     private var escMonitor: Any?
-    weak var hotkeyManager: HotkeyManager?
-    weak var snapManager: SnapManager?
 
     func show() {
-        // hotkeyManager?.pause()
-        // snapManager?.pause()
-
         if let window = window {
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
@@ -137,8 +131,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
-        // hotkeyManager?.resume()
-        // snapManager?.resume()
         if let escMonitor {
             NSEvent.removeMonitor(escMonitor)
         }
@@ -166,8 +158,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         NSApp.setActivationPolicy(.accessory)
-        SettingsWindowController.shared.hotkeyManager = hotkeyManager
-        SettingsWindowController.shared.snapManager = snapManager
 
         if AXIsProcessTrusted() {
             logger.info("Accessibility trusted, starting hotkeys")

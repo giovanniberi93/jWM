@@ -6,12 +6,6 @@ import ApplicationServices
 // AX synchronously from the main run loop.
 let axMessagingTimeout: Float = 0.1
 
-func makeSystemWideAXElement() -> AXUIElement {
-    let element = AXUIElementCreateSystemWide()
-    AXUIElementSetMessagingTimeout(element, axMessagingTimeout)
-    return element
-}
-
 func makeApplicationAXElement(pid: pid_t) -> AXUIElement {
     let element = AXUIElementCreateApplication(pid)
     AXUIElementSetMessagingTimeout(element, axMessagingTimeout)

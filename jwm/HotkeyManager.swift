@@ -13,7 +13,6 @@ final class HotkeyManager {
     /// owner snapshot the current frontmost app's state before focus shifts
     /// or tile geometry changes happen.
     private var onBeforeAction: (() -> Void)?
-    private var paused = false
 
     // Chord state: after cmd+N, waiting for either cmd release (focus only) or position key (tile)
     private var pendingAppKey: String?
@@ -97,13 +96,10 @@ final class HotkeyManager {
     }
 
     private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
-        // Re-enable tap if it gets disabled by the system (but not if we paused intentionally)
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            if !paused {
-                logger.info("Event tap was disabled by system, re-enabling")
-                if let tap = eventTap {
-                    CGEvent.tapEnable(tap: tap, enable: true)
-                }
+            logger.info("Event tap was disabled by system, re-enabling")
+            if let tap = eventTap {
+                CGEvent.tapEnable(tap: tap, enable: true)
             }
             return Unmanaged.passRetained(event)
         }
@@ -181,22 +177,6 @@ final class HotkeyManager {
         }
 
         return Unmanaged.passRetained(event)
-    }
-
-    func pause() {
-        paused = true
-        if let tap = eventTap {
-            CGEvent.tapEnable(tap: tap, enable: false)
-            logger.info("Event tap paused")
-        }
-    }
-
-    func resume() {
-        paused = false
-        if let tap = eventTap {
-            CGEvent.tapEnable(tap: tap, enable: true)
-            logger.info("Event tap resumed")
-        }
     }
 
     func stop() {

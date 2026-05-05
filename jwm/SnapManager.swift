@@ -36,18 +36,6 @@ final class SnapManager {
         logger.info("SnapManager started")
     }
 
-    private var paused = false
-
-    func pause() {
-        paused = true
-        logger.info("Snap manager paused")
-    }
-
-    func resume() {
-        paused = false
-        logger.info("Snap manager resumed")
-    }
-
     func stop() {
         if let monitor = globalMonitor {
             NSEvent.removeMonitor(monitor)
@@ -60,7 +48,6 @@ final class SnapManager {
     }
 
     private func handleEvent(_ event: NSEvent) {
-        guard !paused else { return }
         switch event.type {
         case .leftMouseDown:
             handleMouseDown(event)
@@ -80,17 +67,11 @@ final class SnapManager {
 
         let screenPoint = NSEvent.mouseLocation.toCG
         guard let (pid, origin) = getWindowInfoUnderCursor(at: screenPoint) else {
-            // Debug: check what app is under cursor via frontmost
             if let front = NSWorkspace.shared.frontmostApplication {
                 logger.info("snap: mouseDown missed — frontmost=\(front.localizedName ?? "?") cursor=\(screenPoint)")
             }
             return
         }
-
-        // Ignore system processes
-        guard let app = NSRunningApplication(processIdentifier: pid),
-              let bundleID = app.bundleIdentifier,
-              !Self.ignoredBundleIDs.contains(bundleID) else { return }
 
         draggedWindowPID = pid
         initialWindowOrigin = origin
@@ -170,21 +151,20 @@ final class SnapManager {
     // MARK: - Accessibility helpers
 
     private func getWindowInfoUnderCursor(at point: CGPoint) -> (pid_t, CGPoint)? {
-        let systemWide = makeSystemWideAXElement()
+        // Quartz reports the owning pid via WindowServer with no AX/Mach IPC
+        // into the foreground app. This avoids the systemWide AX hop, which
+        // synchronously blocks the main thread when the foreground app is
+        // slow or hung (most painful: NSOpenPanel's XPC service).
+        guard let info = QuartzWindowList.windowAtPoint(point) else { return nil }
+        let pid = info.pid
 
-        var elementRef: AXUIElement?
-        guard AXUIElementCopyElementAtPosition(systemWide, Float(point.x), Float(point.y), &elementRef) == .success,
-              let element = elementRef else { return nil }
+        // Bundle-id ignore check happens before any AX call now — Quartz gives
+        // us the pid without IPC, so we can cheaply skip system processes.
+        guard let app = NSRunningApplication(processIdentifier: pid),
+              let bundleID = app.bundleIdentifier,
+              !Self.ignoredBundleIDs.contains(bundleID) else { return nil }
 
-        // Get PID from whatever element is under the cursor — don't walk the
-        // AX tree, as Electron apps (WhatsApp, Slack) have broken parent chains.
-        var pid: pid_t = 0
-        AXUIElementGetPid(element, &pid)
-        guard pid > 0 else { return nil }
-
-        // Read window position via the app's focused/first window
         guard let origin = getWindowOrigin(pid: pid) else { return nil }
-
         return (pid, origin)
     }
 
