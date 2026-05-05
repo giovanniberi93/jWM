@@ -87,7 +87,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window.setFrame(initialFrame, display: false)
         window.contentView = hosting
         didInitialSize = true
-        window.center()
+        positionNearTop(window)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         self.window = window
@@ -97,6 +97,23 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             _ = self
             return nil
         }
+    }
+
+    private func positionNearTop(_ window: NSWindow) {
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) })
+            ?? window.screen
+            ?? NSScreen.main
+        guard let visible = screen?.visibleFrame else {
+            window.center()
+            return
+        }
+        var f = window.frame
+        f.origin.x = visible.midX - f.size.width / 2
+        let topInset: CGFloat = 40
+        f.origin.y = visible.maxY - f.size.height - topInset
+        if f.origin.y < visible.minY { f.origin.y = visible.minY }
+        window.setFrame(f, display: false)
     }
 
     private func applyContentHeight(_ contentHeight: CGFloat, window: NSWindow) {
