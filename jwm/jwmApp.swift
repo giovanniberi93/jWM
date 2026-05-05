@@ -4,7 +4,7 @@ import os
 let logger = DualLogger()
 
 struct DualLogger {
-    private let osLog = Logger(subsystem: "com.giovanniberi93.jwm", category: "general")
+    private let osLog = Logger(subsystem: BundleIDs.releaseBundleID, category: "general")
     private let formatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "HH:mm:ss.SSS"
@@ -157,7 +157,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Dev/debug and installed builds have different bundle ids but both
         // register a global event tap, so any two running instances fight over
         // hotkeys. Count across both ids and bail if anyone else is up.
-        let bundleIDs = ["com.giovanniberi93.jwm", "com.giovanniberi93.jwm.debug"]
+        let bundleIDs = [BundleIDs.releaseBundleID, BundleIDs.integrationTestBundleID]
         let total = bundleIDs.reduce(0) { $0 + NSRunningApplication.runningApplications(withBundleIdentifier: $1).count }
         if total > 1 {
             logger.info("Another jwm instance is already running, quitting")

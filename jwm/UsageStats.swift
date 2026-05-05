@@ -16,7 +16,7 @@ enum UsageStats {
     }
 
     private static let retentionDays = 30
-    private static let queue = DispatchQueue(label: "com.giovanniberi93.jwm.usage-stats")
+    private static let queue = DispatchQueue(label: "\(BundleIDs.releaseBundleID).usage-stats")
 
     private static let bucketFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -28,6 +28,7 @@ enum UsageStats {
     }()
 
     static func record(_ kind: EventKind, at date: Date = Date()) {
+        guard Bundle.main.bundleIdentifier == BundleIDs.releaseBundleID else { return }
         queue.async {
             let key = bucketFormatter.string(from: date)
             var store = load()
