@@ -6,6 +6,12 @@ set -euo pipefail
 ROOT="${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 SCREEN_HELPER_SRC="$ROOT/integration-tests/screen-info-helper.swift"
 SCREEN_HELPER_BIN="$ROOT/build/test/screen-info-helper"
+MOUSE_HELPER_SRC="$ROOT/integration-tests/mouse-helper.swift"
+MOUSE_HELPER_BIN="$ROOT/build/test/mouse-helper"
+
+# Sentinel exit code recognized by test-integration.sh as "skipped" rather than
+# pass/fail. Matches the autotools convention.
+SKIP_EXIT_CODE=77
 
 # Tolerances mirror WindowTiler.matchHalfPosition: 20px absolute on origin,
 # 15% on size. Tests stay deterministic without being brittle to AppKit rounding.
@@ -55,16 +61,45 @@ screen_of_rect() {
 }
 
 # Self-guard for tests that need N screens. Used by tests under
-# test-cases/multi-screen/ so a direct filter run on a single-screen system
-# fails clearly instead of producing confusing assertion errors.
+# test-cases/multi-screen/ so a single-screen run reports them as skipped
+# instead of failing or silently disappearing from the report.
 require_screens() {
     local needed="$1"
     local actual
     actual=$(screen_count)
     if (( actual < needed )); then
-        echo "  requires $needed screens, found $actual" >&2
-        exit 1
+        echo "  skipped: requires $needed screens, found $actual" >&2
+        exit "$SKIP_EXIT_CODE"
     fi
+}
+
+# --- Mouse synthesis ----------------------------------------------------------
+
+ensure_mouse_helper() {
+    if [ ! -x "$MOUSE_HELPER_BIN" ] || [ "$MOUSE_HELPER_SRC" -nt "$MOUSE_HELPER_BIN" ]; then
+        mkdir -p "$(dirname "$MOUSE_HELPER_BIN")"
+        swiftc -O "$MOUSE_HELPER_SRC" -o "$MOUSE_HELPER_BIN"
+    fi
+}
+
+# Tests that hijack the real mouse cursor call this at the top so a developer
+# actively using the machine can opt out via SKIP_MOUSE_TESTS=1 without
+# editing the harness.
+skip_if_mouse_disabled() {
+    if [ "${SKIP_MOUSE_TESTS:-}" = "1" ]; then
+        echo "  skipped: SKIP_MOUSE_TESTS=1 (mouse-driven test)" >&2
+        exit "$SKIP_EXIT_CODE"
+    fi
+}
+
+# Drag from (fromX,fromY) to (toX,toY) in CG coords. Emits mouseDown, a
+# linear sequence of mouseDragged events, then mouseUp. Coordinates match the
+# CG top-left convention used by the rest of the harness.
+drag_mouse() {
+    local fx="$1" fy="$2" tx="$3" ty="$4"
+    local steps="${5:-30}" step_delay_ms="${6:-12}"
+    ensure_mouse_helper
+    "$MOUSE_HELPER_BIN" drag "$fx" "$fy" "$tx" "$ty" "$steps" "$step_delay_ms"
 }
 
 # --- Victim app management ----------------------------------------------------

@@ -31,7 +31,7 @@ cyan "Detected $sc screen(s)."
 echo
 if [ "$sc" -lt 2 ]; then
     yellow "NOTE: "
-    echo "Only single-screen tests will run. Multi-screen tests under test-cases/multi-screen/ are skipped."
+    echo "Multi-screen tests under test-cases/multi-screen/ will report SKIP."
 fi
 
 STUB1_BUNDLE="com.giovanniberi93.jwm.stub1"
@@ -100,7 +100,9 @@ echo "jwm event tap up (pid $JWM_PID, log $JWM_LOG)"
 
 PASS=0
 FAIL=0
+SKIP=0
 FAILED_TESTS=()
+SKIPPED_TESTS=()
 
 shopt -s nullglob
 TEST_FILTER="${1:-}"
@@ -118,10 +120,10 @@ if [ -n "$TEST_FILTER" ]; then
         exit 1
     fi
 else
-    test_files=( "$ROOT"/integration-tests/test-cases/*.sh )
-    if [ "$sc" -ge 2 ]; then
-        test_files+=( "$ROOT"/integration-tests/test-cases/multi-screen/*.sh )
-    fi
+    test_files=(
+        "$ROOT"/integration-tests/test-cases/*.sh
+        "$ROOT"/integration-tests/test-cases/multi-screen/*.sh
+    )
 fi
 for tc in "${test_files[@]}"; do
     name=$(basename "$tc" .sh)
@@ -129,10 +131,17 @@ for tc in "${test_files[@]}"; do
     cyan "▶ $name"
     # Mark jwm log position so we can extract just this test's slice on failure
     jwm_log_offset=$(wc -c <"$JWM_LOG" 2>/dev/null | tr -d ' ' || echo 0)
-    if ROOT="$ROOT" bash "$tc"; then
+    rc=0
+    ROOT="$ROOT" bash "$tc" || rc=$?
+    if [ "$rc" -eq 0 ]; then
         green "  PASS"
         echo
         PASS=$((PASS + 1))
+    elif [ "$rc" -eq 77 ]; then
+        yellow "  SKIP"
+        echo
+        SKIP=$((SKIP + 1))
+        SKIPPED_TESTS+=("$name")
     else
         red "  FAIL"
         echo
@@ -157,6 +166,12 @@ done
 echo
 echo "─────────────────────────────"
 green "PASSED: $PASS"
+if [ "$SKIP" -gt 0 ]; then
+    echo
+    yellow "SKIPPED: $SKIP"
+    echo
+    for t in "${SKIPPED_TESTS[@]}"; do echo "  - $t"; done
+fi
 if [ "$FAIL" -gt 0 ]; then
     echo
     red "FAILED: $FAIL"
