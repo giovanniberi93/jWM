@@ -48,6 +48,7 @@ struct SettingsView: View {
 
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var macOSTilingEnabled = Self.isMacOSTilingEnabled()
+    @State private var titleBarDoubleClickAction = Self.titleBarDoubleClickAction()
     @State private var showResetConfirm = false
     @AppStorage("useArrowKeys") private var useArrowKeys: Bool = false
 
@@ -68,7 +69,7 @@ struct SettingsView: View {
                 }
                 .padding(.bottom, 22)
 
-                sectionHeader("Other options")
+                sectionHeader("General")
                     .padding(.bottom, 10)
 
                 VStack(spacing: 6) {
@@ -77,8 +78,19 @@ struct SettingsView: View {
                         setLaunchAtLogin: setLaunchAtLogin
                     )
                     UseArrowKeysRow(isOn: $useArrowKeys)
+                }
+                .padding(.bottom, 22)
+
+                sectionHeader("Mouse support — Conflicting MacOS settings")
+                    .padding(.bottom, 10)
+
+                VStack(spacing: 6) {
                     EdgeTilingRow(
                         macOSTilingEnabled: macOSTilingEnabled,
+                        openSettings: openMacOSTilingSettings
+                    )
+                    TitleBarDoubleClickRow(
+                        action: titleBarDoubleClickAction,
                         openSettings: openMacOSTilingSettings
                     )
                 }
@@ -111,6 +123,7 @@ struct SettingsView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             macOSTilingEnabled = Self.isMacOSTilingEnabled()
+            titleBarDoubleClickAction = Self.titleBarDoubleClickAction()
             launchAtLogin = SMAppService.mainApp.status == .enabled
         }
         .alert("Clear all app bindings?",
@@ -168,6 +181,19 @@ struct SettingsView: View {
         task.waitUntilExit()
         let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
         return output != "0"
+    }
+
+    private static func titleBarDoubleClickAction() -> String {
+        let task = Process()
+        task.launchPath = "/usr/bin/defaults"
+        task.arguments = ["read", "-g", "AppleActionOnDoubleClick"]
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.standardError = FileHandle.nullDevice
+        task.launch()
+        task.waitUntilExit()
+        return String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 }
 
@@ -229,7 +255,7 @@ private struct EdgeTilingRow: View {
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("MacOS tiling on dragging to left/right edge")
+                Text("Drag windows to left or right edge of screen to tile")
                     .font(.system(size: 13, weight: .medium))
                 HStack(spacing: 6) {
                     if macOSTilingEnabled {
@@ -240,6 +266,41 @@ private struct EdgeTilingRow: View {
                     } else {
                         StatusChip(text: "OK", fg: DS.green, bg: DS.okBg)
                         Text("Already disabled — no conflict with jWM")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+            Button("Open Settings", action: openSettings)
+                .controlSize(.small)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 8).fill(.quinary))
+    }
+}
+
+private struct TitleBarDoubleClickRow: View {
+    let action: String
+    let openSettings: () -> Void
+
+    private var isFill: Bool { action.caseInsensitiveCompare("Fill") == .orderedSame }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Window title bar double-click action")
+                    .font(.system(size: 13, weight: .medium))
+                HStack(spacing: 6) {
+                    if isFill {
+                        StatusChip(text: "OK", fg: DS.green, bg: DS.okBg)
+                        Text("Already set to Fill — full mouse support for window tiling")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        StatusChip(text: "FIX", fg: DS.amber, bg: DS.amberBg)
+                        Text("Should be set to Fill — no fullscreen support")
                             .font(.system(size: 11.5))
                             .foregroundStyle(.secondary)
                     }

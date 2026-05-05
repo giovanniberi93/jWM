@@ -30,18 +30,20 @@ install: build reset-accessibility-permissions
 	rm -rf /Applications/$(APP_NAME).app
 	ditto $(BUILD_DIR)/Build/Products/Debug/jwm.app /Applications/$(APP_NAME).app
 
+.PHONY: kill
+kill:
+	pkill -x jwm || true
+
 .PHONY: reset-accessibility-permissions
-reset-accessibility-permissions:
+reset-accessibility-permissions: kill
 	@if command -v tccutil >/dev/null 2>&1; then \
-		pkill -x jwm || true; \
 		tccutil reset Accessibility $(INSTALLED_BUNDLE_ID); \
 	else \
 		echo "WARNING: tccutil not found, skipping TCC reset"; \
 	fi
 
 .PHONY: uninstall
-uninstall:
-	pkill -x jwm || true
+uninstall: kill
 	rm -rf /Applications/$(APP_NAME).app
 
 .PHONY: test
