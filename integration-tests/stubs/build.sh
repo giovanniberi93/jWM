@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
-# Build three minimal AppKit stub apps used as victim apps in integration
-# tests. Each stub shares the same compiled binary but is packaged into a
-# distinct .app bundle with a unique bundle id so jwm can bind app1/app2/app3
-# to com.giovanniberi93.jwm.stub{1,2,3}. Registered with Launch Services so
-# `open -b` resolves them.
+# Build minimal AppKit stub apps used as victim apps in integration tests.
+# All stubs share the same compiled binary but are packaged into distinct
+# .app bundles with unique bundle ids:
+#   com.giovanniberi93.jwm.stub{1,2,3} — well-behaved victims
+#   com.giovanniberi93.jwm.problematic — opt-in misbehaviors via CLI flags
+#     (--drift-back-times, --spawn-delay-ms, --windows 0); used to
+#     exercise jwm's defensive logic (guardPosition, guardActivation,
+#     focusOrLaunch's no-window branch). Pass flags with
+#     `open -b <bundle> -n --args ...`.
+# Registered with Launch Services so `open -b` resolves them.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -14,13 +19,18 @@ BIN="$BUILD_DIR/jwm-stub"
 mkdir -p "$BUILD_DIR"
 swiftc -O "$SRC" -o "$BIN"
 
-NAMES=(JwmStub1 JwmStub2 JwmStub3)
-PREFIX="com.giovanniberi93.jwm.stub"
+NAMES=(JwmStub1 JwmStub2 JwmStub3 JwmStubProblematic)
+BUNDLE_IDS=(
+    com.giovanniberi93.jwm.stub1
+    com.giovanniberi93.jwm.stub2
+    com.giovanniberi93.jwm.stub3
+    com.giovanniberi93.jwm.problematic
+)
 LSREG="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 
 for i in "${!NAMES[@]}"; do
     name="${NAMES[$i]}"
-    n=$((i + 1))
+    bundle_id="${BUNDLE_IDS[$i]}"
     app="$BUILD_DIR/$name.app"
     rm -rf "$app"
     mkdir -p "$app/Contents/MacOS"
@@ -31,7 +41,7 @@ for i in "${!NAMES[@]}"; do
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key><string>$name</string>
-    <key>CFBundleIdentifier</key><string>${PREFIX}${n}</string>
+    <key>CFBundleIdentifier</key><string>${bundle_id}</string>
     <key>CFBundleName</key><string>$name</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleVersion</key><string>1</string>
@@ -42,5 +52,5 @@ for i in "${!NAMES[@]}"; do
 </plist>
 EOF
     "$LSREG" -f "$app"
-    echo "Built $app  (${PREFIX}${n})"
+    echo "Built $app  (${bundle_id})"
 done

@@ -37,6 +37,8 @@ fi
 STUB1_BUNDLE="com.giovanniberi93.jwm.stub1"
 STUB2_BUNDLE="com.giovanniberi93.jwm.stub2"
 STUB3_BUNDLE="com.giovanniberi93.jwm.stub3"
+PROB_BUNDLE="com.giovanniberi93.jwm.problematic"
+export PROB_BUNDLE
 
 cleanup() {
     echo
@@ -45,6 +47,7 @@ cleanup() {
     osascript -e "tell application id \"$STUB1_BUNDLE\" to quit" 2>/dev/null || true
     osascript -e "tell application id \"$STUB2_BUNDLE\" to quit" 2>/dev/null || true
     osascript -e "tell application id \"$STUB3_BUNDLE\" to quit" 2>/dev/null || true
+    osascript -e "tell application id \"$PROB_BUNDLE\" to quit" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -52,12 +55,13 @@ trap cleanup EXIT
 pkill -x "$JWM_PRODUCT_NAME" 2>/dev/null || true
 sleep 0.15
 
-cyan "Booting jwm with test bindings (Stub1=app1, Stub2=app2, Stub3=app3)..."
+cyan "Booting jwm with test bindings (Stub1=app1, Stub2=app2, Stub3=app3, Problematic=app4)..."
 echo
 "$JWM_BIN" \
     -app1_bundleID "$STUB1_BUNDLE" \
     -app2_bundleID "$STUB2_BUNDLE" \
     -app3_bundleID "$STUB3_BUNDLE" \
+    -app4_bundleID "$PROB_BUNDLE" \
     >"$JWM_LOG" 2>&1 &
 JWM_PID=$!
 
@@ -129,6 +133,7 @@ for tc in "${test_files[@]}"; do
     name=$(basename "$tc" .sh)
     echo
     cyan "▶ $name"
+    echo
     # Mark jwm log position so we can extract just this test's slice on failure
     jwm_log_offset=$(wc -c <"$JWM_LOG" 2>/dev/null | tr -d ' ' || echo 0)
     rc=0
@@ -160,6 +165,7 @@ for tc in "${test_files[@]}"; do
     osascript -e "tell application id \"$STUB1_BUNDLE\" to quit" 2>/dev/null || true
     osascript -e "tell application id \"$STUB2_BUNDLE\" to quit" 2>/dev/null || true
     osascript -e "tell application id \"$STUB3_BUNDLE\" to quit" 2>/dev/null || true
+    osascript -e "tell application id \"$PROB_BUNDLE\" to quit" 2>/dev/null || true
     sleep 0.2
 done
 
