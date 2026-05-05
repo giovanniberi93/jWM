@@ -110,7 +110,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         }
         var f = window.frame
         f.origin.x = visible.midX - f.size.width / 2
-        let topInset: CGFloat = 40
+        let topInset: CGFloat = 10
         f.origin.y = visible.maxY - f.size.height - topInset
         if f.origin.y < visible.minY { f.origin.y = visible.minY }
         window.setFrame(f, display: false)
