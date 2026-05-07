@@ -9,7 +9,7 @@ Implementation roadmap for shipping jwm as a paid macOS app with a free tier. Ph
 | Code signing | None (for now) — ad-hoc `codesign -s -` only. No Apple Developer Program. |
 | Payments | Lemon Squeezy (abstracted behind a `LicenseProvider` so it can be swapped) |
 | License | Offline Ed25519-signed tokens; manual signing via local CLI for v1 |
-| Free tier | 100 events/day forever (all 4 `EventKind`s pooled) |
+| Free tier | Unlimited for the first **X weeks** after first launch, then 100 events/day forever (all 4 `EventKind`s pooled). `X` TBD — typical indie default is 2. |
 | Capped UX | All hotkeys disabled until local midnight + menubar state + Buy button |
 | Anti-cheat | Latest-seen-date watermark in `UsageStats` storage |
 | Updates | Sparkle 2 with EdDSA-signed appcast |
@@ -58,7 +58,10 @@ Implementation roadmap for shipping jwm as a paid macOS app with a free tier. Ph
 ## Phase 2 — Daily cap enforcement
 
 - [ ] Extend `jwm/UsageStats.swift`: add `static func eventsToday() -> Int` summing all 4 kinds across the 24 local-day hour buckets.
-- [ ] Add `static var isCapReached: Bool { LicenseStatus.current.isFree && eventsToday() >= 100 }`.
+- [ ] Persist a `firstLaunchDate` (set once on first run if absent) — the anchor for the unlimited trial window. Stored alongside the watermark (see Phase 3 — Keychain candidate).
+- [ ] Add `static var isInTrial: Bool` returning `true` if `now < firstLaunchDate + X weeks`.
+- [ ] Add `static var isCapReached: Bool { LicenseStatus.current.isFree && !isInTrial && eventsToday() >= 100 }`.
+- [ ] Settings + menubar surfaces show trial countdown when in trial ("Trial: N days left, then 100/day"); switch to cap-aware UI when trial ends.
 - [ ] Publish a state-change notification (NotificationCenter or `@Published`) so menubar updates in real time when the cap flips.
 - [ ] Wire enforcement at action boundaries: early-return guard in `HotkeyManager.onBeforeAction` (per CLAUDE.md, this is the single chokepoint for chord actions).
 - [ ] Confirm mouse-snap actions also flow through (or independently call) the same guard.
@@ -84,6 +87,9 @@ Implementation roadmap for shipping jwm as a paid macOS app with a free tier. Ph
 **Risks / unknowns**
 - A determined cheater can edit the JSON file directly. Acceptable for v1 — the goal is to block trivial bypasses, not nation-state attackers.
 - Remote time check (skipped for v1) would harden this further. Note for v2 if abuse is observed.
+- **Reinstallation bypass:** the watermark currently lives in `~/Library/Application Support/jwm/usage-stats.json`, which is destroyed by manual `~/Library` cleanup or AppCleaner-style uninstallers. Trivial 5-second bypass. Consider moving the watermark (and event counter, and the `firstLaunchDate` trial anchor) into the User Keychain alongside the license, since the Keychain wrapper is being added anyway and Keychain entries survive normal uninstalls. Does NOT defend against fresh-user-account or fresh-Mac bypasses — those are backend-only problems and out of scope for v1.
+- **Trial reset bypass via reinstall:** without Keychain storage of `firstLaunchDate`, a user can reset the trial by uninstalling + cleaning up. Same Keychain mitigation covers this; same residual bypasses apply.
+- **Trial reset bypass via clock forward:** a user could wind the clock forward to age out the trial faster... wait, that makes the trial *expire* sooner. The relevant attack is winding the clock *back* to extend the trial. The watermark already prevents the day counter from going backwards; apply the same logic to the trial check (`min(now, latestSeenDay)` when evaluating `isInTrial`).
 
 ---
 
