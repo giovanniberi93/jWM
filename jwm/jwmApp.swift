@@ -210,6 +210,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 logger.info("Focusing \(appKey) -> \(bundleID)")
                 UsageStats.record(.focus)
                 AppFocuser.focusOrLaunch(bundleID: bundleID)
+                OnboardingCoordinator.shared.observeAction(.focus(slotKey: appKey))
                 // No explicit snapshot of the new app: NSWorkspace activation
                 // notification will fire and guardActivation handles it.
             },
@@ -239,6 +240,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         }
                     }
                 }
+                OnboardingCoordinator.shared.observeAction(.focusTile(slotKey: appKey, position: position))
             },
             onLaunchAll: {
                 AppFocuser.launchAllConfigured()
@@ -253,5 +255,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         )
+
+        // Surface the onboarding tutorial once hotkeys are running so the
+        // chord-rehearsal steps can actually fire. Skipped if the user has
+        // already finished the tutorial in a prior session.
+        OnboardingCoordinator.shared.presentIfFirstRun()
     }
 }

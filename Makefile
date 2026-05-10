@@ -25,6 +25,10 @@ build-test:
 dev: build
 	$(BUILD_DIR)/Build/Products/Debug/jwm.app/Contents/MacOS/jwm
 
+.PHONY: reset-tutorial
+reset-tutorial:
+	defaults delete $(INSTALLED_BUNDLE_ID) hasCompletedFirstRunTutorial 2>/dev/null || true
+
 .PHONY: install
 install: build reset-accessibility-permissions
 	rm -rf /Applications/$(APP_NAME).app
