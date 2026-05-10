@@ -86,24 +86,57 @@ struct InstalledApp: Identifiable, Hashable {
 }
 
 enum InstalledAppCatalog {
-    /// Enumerate `/Applications` (and `/System/Applications`) for `.app`
-    /// bundles with a bundle identifier. Sorted by display name.
+    /// Enumerate `.app` bundles from /System/Applications, /Applications, and
+    /// ~/Applications, deduped by bundle ID and sorted by display name.
+    ///
+    /// Filters out:
+    /// - bundles whose ID is in `TutorialAppExclusions.bundleIDs` (apps the
+    ///   survey saw refuse to tile, plus the static denylist);
+    /// - daemon/agent apps (`LSUIElement` or `LSBackgroundOnly` true in
+    ///   Info.plist) — these have no user-facing main window, so they're
+    ///   useless as tutorial targets.
     static func load() -> [InstalledApp] {
+        let roots = [
+            "/System/Applications",
+            "/Applications",
+            (NSString(string: "~/Applications").expandingTildeInPath),
+        ]
+
         var apps: [InstalledApp] = []
         var seen = Set<String>()
-        let roots = ["/Applications", "/System/Applications"]
         let fm = FileManager.default
+
         for root in roots {
             guard let contents = try? fm.contentsOfDirectory(atPath: root) else { continue }
             for entry in contents where entry.hasSuffix(".app") {
                 let path = "\(root)/\(entry)"
                 guard let bundle = Bundle(path: path),
                       let bid = bundle.bundleIdentifier,
+                      !TutorialAppExclusions.bundleIDs.contains(bid),
+                      !isAgentOrDaemon(bundle),
                       seen.insert(bid).inserted else { continue }
                 let name = fm.displayName(atPath: path)
                 apps.append(InstalledApp(bundleID: bid, name: name, url: URL(fileURLWithPath: path)))
             }
         }
         return apps.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// True if the bundle declares itself as a menu-bar agent (LSUIElement)
+    /// or a background-only daemon (LSBackgroundOnly). Info.plist booleans
+    /// should be `<true/>`/`<false/>`, but some real-world bundles store them
+    /// as `<string>YES</string>` or `<string>1</string>`; accept both shapes.
+    private static func isAgentOrDaemon(_ bundle: Bundle) -> Bool {
+        let info = bundle.infoDictionary ?? [:]
+        func plistTruthy(_ key: String) -> Bool {
+            if let b = info[key] as? Bool { return b }
+            if let n = info[key] as? NSNumber { return n.boolValue }
+            if let s = info[key] as? String {
+                let lower = s.lowercased()
+                return lower == "yes" || lower == "true" || lower == "1"
+            }
+            return false
+        }
+        return plistTruthy("LSUIElement") || plistTruthy("LSBackgroundOnly")
     }
 }
