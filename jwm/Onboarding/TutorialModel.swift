@@ -58,7 +58,8 @@ final class TutorialModel: ObservableObject {
     }
     var slot1Name: String {
         let n = UserDefaults.standard.string(forKey: "app1_appName") ?? ""
-        return n.isEmpty ? "your app" : n
+        if n.isEmpty { return "your app" }
+        return n.hasSuffix(".app") ? String(n.dropLast(4)) : n
     }
 
     func bind(slot: Int, app: InstalledApp) {

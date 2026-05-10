@@ -74,7 +74,7 @@ struct TutorialView: View {
             lede: lede,
             chord: ChordRow(caps: [
                 .init("⌘", sublabel: "command", pulsing: true),
-                .init("1", sublabel: "⌘", pulsing: true),
+                .init("1", sublabel: model.slot1Name, pulsing: true),
             ]),
             pressHint: "Press ⌘1 anywhere on your Mac.",
             model: model,
@@ -85,7 +85,7 @@ struct TutorialView: View {
 
     private var tryChordStepView: some View {
         let rightKey = useArrowKeys ? "→" : "L"
-        var lede = AttributedString("Hold ⌘, then press 1 and \(rightKey) in one motion. That focuses slot 1 and tiles it right — one chord, one move.")
+        var lede = AttributedString("Hold ⌘, then press 1 and \(rightKey); release the keys. That focuses slot 1 and tiles it right — one chord, one move.")
         for term in ["⌘", "1", rightKey] {
             if let r = lede.range(of: term) { lede[r].font = .system(size: 14, weight: .semibold) }
         }
@@ -94,8 +94,8 @@ struct TutorialView: View {
             heading: "Now tile it in one motion.",
             lede: lede,
             chord: ChordRow(caps: [
-                .init("⌘", sublabel: "hold"),
-                .init("1", sublabel: "⌘", pulsing: true),
+                .init("⌘", sublabel: "command", pulsing: true),
+                .init("1", sublabel: model.slot1Name, pulsing: true),
                 .init(rightKey, sublabel: "right", pulsing: true),
             ]),
             pressHint: "Press the chord on your Mac.",
