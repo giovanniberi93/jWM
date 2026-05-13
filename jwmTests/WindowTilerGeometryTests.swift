@@ -153,3 +153,55 @@ final class WindowTilerGeometryTests: XCTestCase {
         XCTAssertEqual(left.height, right.height)
     }
 }
+
+// MARK: - Suppression staleness
+
+/// Belt-and-suspenders coverage for the displaceIfHalf suppression flag.
+/// The primary clear path (launchAndWaitForWindow's defer) is integration-
+/// tested by integration-tests/test-cases/18_chord_launch_uses_chord_target.sh.
+/// These tests cover the self-heal backstop in isolation.
+final class WindowTilerSuppressionTests: XCTestCase {
+
+    override func setUp() {
+        super.setUp()
+        WindowTiler.suppressDisplaceForBundleID = nil
+    }
+
+    override func tearDown() {
+        WindowTiler.suppressDisplaceForBundleID = nil
+        super.tearDown()
+    }
+
+    func testClearSuppressionIfStaleClearsOldFlag() {
+        WindowTiler.suppressDisplaceForBundleID = "com.example.app"
+        // 1000s in the future is comfortably past any plausible maxSuppressionAge.
+        let cleared = WindowTiler.clearSuppressionIfStale(now: Date().addingTimeInterval(1000))
+        XCTAssertTrue(cleared)
+        XCTAssertNil(WindowTiler.suppressDisplaceForBundleID)
+    }
+
+    func testClearSuppressionIfStalePreservesFreshFlag() {
+        WindowTiler.suppressDisplaceForBundleID = "com.example.app"
+        let cleared = WindowTiler.clearSuppressionIfStale(now: Date())
+        XCTAssertFalse(cleared)
+        XCTAssertEqual(WindowTiler.suppressDisplaceForBundleID, "com.example.app")
+    }
+
+    func testClearSuppressionIfStaleNoopWhenUnset() {
+        XCTAssertNil(WindowTiler.suppressDisplaceForBundleID)
+        let cleared = WindowTiler.clearSuppressionIfStale(now: Date().addingTimeInterval(1000))
+        XCTAssertFalse(cleared)
+        XCTAssertNil(WindowTiler.suppressDisplaceForBundleID)
+    }
+
+    func testSettingNilSuppressionDoesNotMarkAsStale() {
+        // Setting to nil shouldn't leave a stale timestamp behind that
+        // could later trigger a false self-heal log on the next set.
+        WindowTiler.suppressDisplaceForBundleID = "com.example.app"
+        WindowTiler.suppressDisplaceForBundleID = nil
+        // Setting nil clears the timestamp via didSet; reading "stale" now
+        // is a no-op because the flag is nil.
+        let cleared = WindowTiler.clearSuppressionIfStale(now: Date().addingTimeInterval(1000))
+        XCTAssertFalse(cleared)
+    }
+}

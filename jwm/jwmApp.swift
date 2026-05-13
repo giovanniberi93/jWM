@@ -232,7 +232,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     app.activate()
                 } else {
                     logger.info("App \(bundleID) not running or has no windows, launching + tiling...")
+                    // Block guardActivation's displaceIfHalf from acting on
+                    // the launching app's restored geometry — our tile() below
+                    // owns positioning for this chord. The flag is cleared in
+                    // the completion (deterministic: main queue is serial, so
+                    // no displaceIfHalf can interleave between entry and exit,
+                    // and by exit the window is at the chord's target).
+                    WindowTiler.suppressDisplaceForBundleID = bundleID
                     AppFocuser.launchAndWaitForWindow(bundleID: bundleID) { app in
+                        defer {
+                            if WindowTiler.suppressDisplaceForBundleID == bundleID {
+                                WindowTiler.suppressDisplaceForBundleID = nil
+                            }
+                        }
+                        guard let app = app else { return }
                         WindowTiler.tile(position, app: app)
                         app.activate()
                         WindowAX.guardPosition(pid: app.processIdentifier) {

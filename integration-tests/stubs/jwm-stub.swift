@@ -136,6 +136,23 @@ final class StubAppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    // Integration-test hook: if `/tmp/jwm-stub-initial-frame.txt` exists, the
+    // FIRST window of this process opens at the rect it specifies (CG coords,
+    // space-separated "x y w h"). One-shot — the file is deleted on read.
+    // Used by tests that need to launch a stub at a specific half-tile rect
+    // so jwm's activation-time path sees a stale half-tiled layout.
+    private static func consumeInitialFrameOverride() -> NSRect? {
+        let path = "/tmp/jwm-stub-initial-frame.txt"
+        guard let text = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
+        try? FileManager.default.removeItem(atPath: path)
+        let parts = text.split(whereSeparator: { $0.isWhitespace || $0 == "," }).compactMap { Double($0) }
+        guard parts.count == 4 else { return nil }
+        let cgX = CGFloat(parts[0]), cgY = CGFloat(parts[1])
+        let cgW = CGFloat(parts[2]), cgH = CGFloat(parts[3])
+        let primaryH = NSScreen.screens.first?.frame.height ?? 0
+        return NSRect(x: cgX, y: primaryH - cgY - cgH, width: cgW, height: cgH)
+    }
+
     private func actuallySpawnWindow() {
         let idx = windows.count
         let bundleName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "Stub"
@@ -148,6 +165,9 @@ final class StubAppDelegate: NSObject, NSApplicationDelegate {
         )
         w.title = "\(bundleName) #\(idx + 1)"
         w.isReleasedWhenClosed = false
+        if idx == 0, let override = Self.consumeInitialFrameOverride() {
+            w.setFrame(override, display: false, animate: false)
+        }
         w.makeKeyAndOrderFront(nil)
         windows.append(w)
 

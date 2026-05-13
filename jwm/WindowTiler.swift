@@ -9,6 +9,27 @@ enum WindowTiler {
     /// so a weak ref would go nil before the next activation fires.
     private static var lastActiveApp: NSRunningApplication?
 
+    /// While non-nil, `displaceIfHalf` refuses to act on the named bundleID.
+    /// Set by the chord launch path so that the activation notification fired
+    /// during launch (with the app at its *restored* position) doesn't trigger
+    /// a displacement based on the wrong geometry — the chord's own `tile()`
+    /// is the single source of truth for positioning during a chord action.
+    ///
+    /// Primary clear: the launch path's `defer` in `launchAndWaitForWindow`'s
+    /// completion (deterministic; completion is always invoked).
+    ///
+    /// Safety backstop: `displaceIfHalf` self-heals any suppression older
+    /// than `maxSuppressionAge` so a bug in the primary path can never let
+    /// a stale flag affect tiling indefinitely.
+    static var suppressDisplaceForBundleID: String? {
+        didSet { suppressDisplaceSetAt = suppressDisplaceForBundleID != nil ? Date() : nil }
+    }
+    private static var suppressDisplaceSetAt: Date?
+
+    /// Generous upper bound: `launchAndWaitForWindow` times out at 10s, so
+    /// any suppression older than this is by definition orphaned.
+    private static let maxSuppressionAge: TimeInterval = 15.0
+
     /// Tolerance for "this window matches a slot rect" comparisons.
     /// 20px catches near-fullscreen windows whose AX position drifts slightly.
     private static let positionTolerance: CGFloat = 20
@@ -102,10 +123,31 @@ enum WindowTiler {
     }
 
     /// Returns true if a displacement actually happened.
+    /// Pure-logic seam for unit tests. Clears `suppressDisplaceForBundleID`
+    /// if its age against `now` exceeds `maxSuppressionAge`. Returns true
+    /// iff a stale flag was cleared. The default `now = Date()` lets the
+    /// production call site stay terse.
+    @discardableResult
+    static func clearSuppressionIfStale(now: Date = Date()) -> Bool {
+        guard let suppressed = suppressDisplaceForBundleID,
+              let setAt = suppressDisplaceSetAt,
+              now.timeIntervalSince(setAt) > maxSuppressionAge else {
+            return false
+        }
+        logger.error("displaceIfHalf: clearing stale suppression for \(suppressed) (age > \(maxSuppressionAge)s)")
+        suppressDisplaceForBundleID = nil
+        return true
+    }
+
     @discardableResult
     static func displaceIfHalf(app: NSRunningApplication) -> Bool {
         let pid = app.processIdentifier
         let name = appName(app)
+        clearSuppressionIfStale()
+        if let suppressed = suppressDisplaceForBundleID, app.bundleIdentifier == suppressed {
+            logger.info("displaceIfHalf(\(name)): suppressed — chord launch in flight for \(suppressed)")
+            return false
+        }
         guard let windowRect = WindowAX.getRect(pid: pid) else {
             logger.info("displaceIfHalf: no window rect for \(name)")
             return false

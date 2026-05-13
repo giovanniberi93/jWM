@@ -40,6 +40,7 @@ enum AppFocuser {
                     app.activate()
                 } else {
                     launchAndWaitForWindow(bundleID: bundleID) { app in
+                        guard let app = app else { return }
                         WindowTiler.tile(.fullScreen, app: app)
                         app.activate()
                         WindowAX.guardPosition(pid: app.processIdentifier) {
@@ -51,13 +52,20 @@ enum AppFocuser {
         }
     }
 
-    /// Launch an app and wait for its window to appear, then call completion on the main thread.
+    /// Launch an app and wait for its window to appear. The completion is
+    /// always invoked on the main thread — with the app on success, or `nil`
+    /// on timeout / bundle-not-found. Callers can rely on this to release any
+    /// per-launch state (e.g. WindowTiler.suppressDisplaceForBundleID) without
+    /// resorting to delay-based safety nets.
     static func launchAndWaitForWindow(
         bundleID: String,
         timeout: TimeInterval = 10.0,
-        completion: @escaping (NSRunningApplication) -> Void
+        completion: @escaping (NSRunningApplication?) -> Void
     ) {
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+            DispatchQueue.main.async { completion(nil) }
+            return
+        }
         NSWorkspace.shared.openApplication(at: url, configuration: .init())
 
         DispatchQueue.global(qos: .userInitiated).async {
@@ -72,12 +80,13 @@ enum AppFocuser {
                 }
                 Thread.sleep(forTimeInterval: 0.05)
             }
-            // Timeout: activate without tiling
             logger.info("Timed out waiting for \(bundleID) window")
-            if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
-                DispatchQueue.main.async {
-                    app.activate()
-                }
+            DispatchQueue.main.async {
+                // Activate-on-timeout preserves prior behavior so the user at
+                // least lands in the app; caller still gets nil so it can run
+                // any cleanup.
+                NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.activate()
+                completion(nil)
             }
         }
     }
