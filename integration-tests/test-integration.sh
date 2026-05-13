@@ -62,6 +62,7 @@ echo
     -app2_bundleID "$STUB2_BUNDLE" \
     -app3_bundleID "$STUB3_BUNDLE" \
     -app4_bundleID "$PROB_BUNDLE" \
+    -hasCompletedFirstRunTutorial YES \
     >"$JWM_LOG" 2>&1 &
 JWM_PID=$!
 
