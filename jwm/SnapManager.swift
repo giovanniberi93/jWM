@@ -134,6 +134,16 @@ final class SnapManager {
 
         let screenPoint = NSEvent.mouseLocation.toCG
         guard let (pid, origin) = getWindowInfoUnderCursor(at: screenPoint) else {
+            // Distinguish: did windowAtPoint return nothing, or did it return
+            // a window that getWindowInfoUnderCursor's bundleID filter rejected?
+            // If the latter, the stub underneath was shadowed by an unrelated
+            // hit and `.first(where:)` short-circuited before reaching it.
+            let topHit = QuartzWindowList.windowAtPoint(screenPoint)
+            if let hit = topHit {
+                logger.info("snap: miss topHit — owner=\(hit.processName ?? "?") pid=\(hit.pid) level=\(hit.level) frame=\(hit.frame)")
+            } else {
+                logger.info("snap: miss topHit — windowAtPoint returned nil")
+            }
             logMouseDownMiss(at: screenPoint)
             return
         }
@@ -163,9 +173,51 @@ final class SnapManager {
             logger.info("snap: miss ax — frontmost=\(frontName) rect=<unreadable>")
         }
 
-        // What does Quartz see right now? Bypass the 100ms cache by using a
-        // fresh enumeration so the dump reflects WindowServer's view at the
-        // moment of the miss, not a stale snapshot.
+        // Would the AX system-wide hit test have rescued this lookup?
+        if let hit = WindowAX.findWindowAtPosition(cursor) {
+            let app = NSRunningApplication(processIdentifier: hit.pid)
+            let bid = app?.bundleIdentifier ?? "?"
+            let ignored = Self.ignoredBundleIDs.contains(bid)
+            logger.info("snap: miss axHitTest — would catch pid=\(hit.pid) bundle=\(bid) origin=\(hit.origin) ignored=\(ignored)")
+        } else {
+            logger.info("snap: miss axHitTest — system-wide AX hit test returned nil")
+        }
+
+        // First: dump every cached window whose frame contains the cursor,
+        // in z-order. windowAtPoint returns the FIRST element that passes its
+        // filter, so this list reveals (a) what was actually first and (b)
+        // whether the stub was shadowed by something higher-z that the filter
+        // didn't catch.
+        let cached = QuartzWindowList.cachedSnapshot()
+        var idxInCache = 0
+        var containingCount = 0
+        for info in cached {
+            if info.frame.contains(cursor) {
+                logger.info("snap: miss containing[\(idxInCache)] — owner=\(info.processName ?? "?") pid=\(info.pid) level=\(info.level) frame=\(info.frame)")
+                containingCount += 1
+            }
+            idxInCache += 1
+        }
+        if containingCount == 0 {
+            logger.info("snap: miss containing — no cached entries contain the cursor (cache size=\(cached.count))")
+        }
+
+        // Also dump cached entries for the frontmost pid (regardless of whether
+        // their frame contains the cursor), so we can spot a duplicate/phantom
+        // entry covering the same pid.
+        var cachedMatching = 0
+        for info in cached where info.pid == frontPid {
+            cachedMatching += 1
+            let contains = info.frame.contains(cursor)
+            logger.info("snap: miss cache — frontmost pid=\(frontPid) owner=\(info.processName ?? "?") level=\(info.level) frame=\(info.frame) contains(cursor)=\(contains)")
+        }
+        if cachedMatching == 0 {
+            logger.info("snap: miss cache — no entries for frontmost pid=\(frontPid) in cached list of \(cached.count) windows")
+        }
+
+        // Then: dump what Quartz sees right now (fresh fetch), so we can
+        // tell whether the cache was simply stale or CGWindowListCopyWindowInfo
+        // flickered.
         let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
         guard let raw = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
             logger.info("snap: miss quartz — CGWindowListCopyWindowInfo returned nil")
@@ -266,21 +318,39 @@ final class SnapManager {
     // MARK: - Accessibility helpers
 
     private func getWindowInfoUnderCursor(at point: CGPoint) -> (pid_t, CGPoint)? {
-        // Quartz reports the owning pid via WindowServer with no AX/Mach IPC
-        // into the foreground app. This avoids the systemWide AX hop, which
-        // synchronously blocks the main thread when the foreground app is
-        // slow or hung (most painful: NSOpenPanel's XPC service).
-        guard let info = QuartzWindowList.windowAtPoint(point) else { return nil }
-        let pid = info.pid
+        // Fast path: Quartz reports the owning pid via WindowServer with no
+        // AX/Mach IPC into the foreground app. This avoids the systemWide AX
+        // hop, which synchronously blocks the main thread when the foreground
+        // app is slow or hung (most painful: NSOpenPanel's XPC service).
+        if let info = QuartzWindowList.windowAtPoint(point),
+           !Self.bundleIsIgnored(pid: info.pid),
+           let origin = getWindowOrigin(pid: info.pid) {
+            return (info.pid, origin)
+        }
 
-        // Bundle-id ignore check happens before any AX call now — Quartz gives
-        // us the pid without IPC, so we can cheaply skip system processes.
+        // Fallback: AX system-wide hit test. `QuartzWindowList.windowAtPoint`
+        // returns the topmost frame-containing entry that passes its level &
+        // Dock/WindowManager filter — but that hit can be Notification Center
+        // (level 21, full-screen frame) or another maximized window of a
+        // *different* app sitting ahead of the user's drag target in z-order.
+        // When the bundleID check then rejects that hit, the whole lookup
+        // returns nil and the stub underneath is never considered. Same
+        // workaround Rectangle uses in `getWindowElementUnderCursor`. Slower
+        // (one IPC into the target app) but only runs on a fast-path miss.
+        guard let hit = WindowAX.findWindowAtPosition(point),
+              !Self.bundleIsIgnored(pid: hit.pid) else { return nil }
+        logger.info("snap: AX fallback caught window pid=\(hit.pid) origin=\(hit.origin)")
+        return (hit.pid, hit.origin)
+    }
+
+    /// True if the owning app's bundle ID is in `ignoredBundleIDs`, or if the
+    /// pid no longer resolves to a running app. Both paths in
+    /// `getWindowInfoUnderCursor` need this filter, so factoring it keeps the
+    /// ignore list a single source of truth.
+    private static func bundleIsIgnored(pid: pid_t) -> Bool {
         guard let app = NSRunningApplication(processIdentifier: pid),
-              let bundleID = app.bundleIdentifier,
-              !Self.ignoredBundleIDs.contains(bundleID) else { return nil }
-
-        guard let origin = getWindowOrigin(pid: pid) else { return nil }
-        return (pid, origin)
+              let bundleID = app.bundleIdentifier else { return true }
+        return ignoredBundleIDs.contains(bundleID)
     }
 
     private func getWindowOrigin(pid: pid_t) -> CGPoint? {

@@ -34,6 +34,69 @@ enum WindowAX {
         return rect(of: axWindow)
     }
 
+    /// System-wide AX hit test at a cursor position. Returns the owning pid
+    /// plus the window's origin (CG coords), or nil if no window is found.
+    /// Used by SnapManager as a fallback when `QuartzWindowList.windowAtPoint`
+    /// fails to find the user's drag target — same fallback Rectangle uses in
+    /// `AccessibilityElement.getWindowElementUnderCursor`. AX is slower than
+    /// Quartz (one IPC into the target app) but reliable: it gives us
+    /// whatever the user actually clicked on, regardless of any Quartz
+    /// ordering / cache quirks.
+    static func findWindowAtPosition(_ point: CGPoint) -> (pid: pid_t, origin: CGPoint)? {
+        let systemWide = AXUIElementCreateSystemWide()
+        AXUIElementSetMessagingTimeout(systemWide, axMessagingTimeout)
+        var elementRef: AXUIElement?
+        guard AXUIElementCopyElementAtPosition(systemWide, Float(point.x), Float(point.y), &elementRef) == .success,
+              let element = elementRef else { return nil }
+
+        // Walk up the AX tree to the enclosing window. The hit-test result is
+        // usually a button/text element inside the window; kAXWindowAttribute
+        // gives us the owning window in one hop on most controls. Fall back
+        // to climbing the parent chain for elements that don't expose
+        // kAXWindow directly.
+        let axWindow: AXUIElement
+        var windowRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(element, kAXWindowAttribute as CFString, &windowRef) == .success,
+           let w = windowRef {
+            axWindow = w as! AXUIElement
+        } else if let climbed = climbToWindow(from: element) {
+            axWindow = climbed
+        } else {
+            return nil
+        }
+
+        var pid: pid_t = 0
+        guard AXUIElementGetPid(axWindow, &pid) == .success else { return nil }
+        guard let origin = position(of: axWindow) else { return nil }
+        return (pid, origin)
+    }
+
+    private static func climbToWindow(from element: AXUIElement) -> AXUIElement? {
+        var current = element
+        for _ in 0..<10 {
+            var roleRef: CFTypeRef?
+            if AXUIElementCopyAttributeValue(current, kAXRoleAttribute as CFString, &roleRef) == .success,
+               let role = roleRef as? String, role == kAXWindowRole as String {
+                return current
+            }
+            var parentRef: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(current, kAXParentAttribute as CFString, &parentRef) == .success,
+                  let parent = parentRef else { return nil }
+            current = parent as! AXUIElement
+        }
+        return nil
+    }
+
+    private static func position(of axWindow: AXUIElement) -> CGPoint? {
+        var posRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axWindow, kAXPositionAttribute as CFString, &posRef) == .success else {
+            return nil
+        }
+        var p = CGPoint.zero
+        AXValueGetValue(posRef as! AXValue, .cgPoint, &p)
+        return p
+    }
+
     /// CGWindowID of the AX-focused window of the given app, or nil if no
     /// window is focused (or the focused element refuses to yield an id).
     /// Falls back to the first window in kAXWindows if no focus is set —

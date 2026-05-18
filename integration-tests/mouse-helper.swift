@@ -26,17 +26,17 @@ case "drag":
     guard argv.count >= 6,
           let fx = Double(argv[2]), let fy = Double(argv[3]),
           let tx = Double(argv[4]), let ty = Double(argv[5]) else { usage() }
-    let steps = argv.count >= 7 ? max(1, Int(argv[6]) ?? 30) : 30
-    let stepDelayMs = argv.count >= 8 ? max(0, Int(argv[7]) ?? 12) : 12
+    let steps = argv.count >= 7 ? max(1, Int(argv[6]) ?? 20) : 20
+    let stepDelayMs = argv.count >= 8 ? max(0, Int(argv[7]) ?? 8) : 8
     let from = CGPoint(x: fx, y: fy)
     let to = CGPoint(x: tx, y: ty)
 
     // Park the cursor on the start point before pressing — otherwise mouseDown
     // fires wherever the user last left the mouse.
     post(.mouseMoved, from)
-    usleep(50_000)
+    usleep(25_000)
     post(.leftMouseDown, from)
-    usleep(80_000)
+    usleep(40_000)
 
     let stepDelay = useconds_t(stepDelayMs * 1000)
     for i in 1...steps {
@@ -49,7 +49,7 @@ case "drag":
 
     // Hold a beat so SnapManager's edgeForCursor has a chance to set the
     // overlay before mouseUp commits the tile.
-    usleep(120_000)
+    usleep(60_000)
     post(.leftMouseUp, to)
 default:
     usage()
