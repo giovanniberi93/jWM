@@ -38,6 +38,7 @@ STUB1_BUNDLE="com.giovanniberi93.jwm.stub1"
 STUB2_BUNDLE="com.giovanniberi93.jwm.stub2"
 STUB3_BUNDLE="com.giovanniberi93.jwm.stub3"
 PROB_BUNDLE="com.giovanniberi93.jwm.problematic"
+OVERLAY_BUNDLE="com.giovanniberi93.jwm.overlay"
 export PROB_BUNDLE
 
 cleanup() {
@@ -48,6 +49,7 @@ cleanup() {
     osascript -e "tell application id \"$STUB2_BUNDLE\" to quit" 2>/dev/null || true
     osascript -e "tell application id \"$STUB3_BUNDLE\" to quit" 2>/dev/null || true
     osascript -e "tell application id \"$PROB_BUNDLE\" to quit" 2>/dev/null || true
+    osascript -e "tell application id \"$OVERLAY_BUNDLE\" to quit" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -178,6 +180,7 @@ for tc in "${test_files[@]}"; do
     osascript -e "tell application id \"$STUB2_BUNDLE\" to quit" 2>/dev/null || true
     osascript -e "tell application id \"$STUB3_BUNDLE\" to quit" 2>/dev/null || true
     osascript -e "tell application id \"$PROB_BUNDLE\" to quit" 2>/dev/null || true
+    osascript -e "tell application id \"$OVERLAY_BUNDLE\" to quit" 2>/dev/null || true
     sleep 0.2
     # Then clear jwm's fullscreen slot map. When focus reverts to the
     # developer's terminal between cases, guardActivation's defocus-promote

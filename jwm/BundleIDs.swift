@@ -14,5 +14,6 @@ enum BundleIDs {
         "com.giovanniberi93.jwm.stub2",
         "com.giovanniberi93.jwm.stub3",
         "com.giovanniberi93.jwm.problematic",
+        "com.giovanniberi93.jwm.overlay",
     ]
 }

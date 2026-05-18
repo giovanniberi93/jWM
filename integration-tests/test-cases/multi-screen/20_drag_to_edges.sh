@@ -9,6 +9,10 @@ source "$ROOT/integration-tests/test-lib.sh"
 require_screens 2
 skip_if_mouse_disabled
 
+# See test-cases/16_drag_to_edges.sh for why the overlay stub is launched.
+open -gb com.giovanniberi93.jwm.overlay >/dev/null 2>&1 || true
+trap 'osascript -e "tell application id \"com.giovanniberi93.jwm.overlay\" to quit" 2>/dev/null || true' EXIT
+
 victim_launch com.giovanniberi93.jwm.stub1
 victim_activate com.giovanniberi93.jwm.stub1
 pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)

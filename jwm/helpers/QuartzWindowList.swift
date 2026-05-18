@@ -23,14 +23,6 @@ enum QuartzWindowList {
         return windowAtPoint(point, in: cache.value())
     }
 
-    /// Snapshot of whatever the TTL cache currently holds — refreshes the
-    /// cache if expired (same path as `windowAtPoint`). Diagnostic-only:
-    /// lets a caller see *exactly the list a recent `windowAtPoint` lookup
-    /// consulted*, without paying for an independent `CGWindowListCopyWindowInfo`.
-    static func cachedSnapshot() -> [QuartzWindowInfo] {
-        return cache.value()
-    }
-
     /// All on-screen windows owned by the given pid, filtered to "normal"
     /// window levels (below Notification Center). Used by `WindowTiler` to
     /// enumerate an app's windows without an AX hop into that app — same

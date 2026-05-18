@@ -27,6 +27,12 @@ final class SnapManager {
         "com.apple.SystemUIServer",
         "com.apple.controlcenter",
         "com.apple.notificationcenterui",
+        // Test-only overlay stub. Bundle id never resolves on a user's
+        // machine; listing it here so integration tests can launch the stub
+        // to recreate the "ignored-bundle covering the click point" condition
+        // that drives the AX hit-test fallback. See
+        // integration-tests/stubs/overlay-stub.swift.
+        "com.giovanniberi93.jwm.overlay",
     ]
 
     func start() {
@@ -134,111 +140,15 @@ final class SnapManager {
 
         let screenPoint = NSEvent.mouseLocation.toCG
         guard let (pid, origin) = getWindowInfoUnderCursor(at: screenPoint) else {
-            // Distinguish: did windowAtPoint return nothing, or did it return
-            // a window that getWindowInfoUnderCursor's bundleID filter rejected?
-            // If the latter, the stub underneath was shadowed by an unrelated
-            // hit and `.first(where:)` short-circuited before reaching it.
-            let topHit = QuartzWindowList.windowAtPoint(screenPoint)
-            if let hit = topHit {
-                logger.info("snap: miss topHit — owner=\(hit.processName ?? "?") pid=\(hit.pid) level=\(hit.level) frame=\(hit.frame)")
-            } else {
-                logger.info("snap: miss topHit — windowAtPoint returned nil")
+            if let front = NSWorkspace.shared.frontmostApplication {
+                logger.info("snap: mouseDown missed — frontmost=\(front.localizedName ?? "?") cursor=\(screenPoint)")
             }
-            logMouseDownMiss(at: screenPoint)
             return
         }
 
         draggedWindowPID = pid
         initialWindowOrigin = origin
         mouseDownLocation = screenPoint
-    }
-
-    /// Dump the full Quartz on-screen window list (frame, pid, level, owner)
-    /// plus the frontmost app's AX rect, so we can tell which side disagrees:
-    /// is Quartz missing the window entirely, listing it at a stale frame, or
-    /// is the cursor genuinely outside every window? The AX fallback line says
-    /// whether `frontmost.AXrect.contains(cursor)` — i.e. whether routing to
-    /// the frontmost app's window would have rescued this drag.
-    private func logMouseDownMiss(at cursor: CGPoint) {
-        let front = NSWorkspace.shared.frontmostApplication
-        let frontName = front?.localizedName ?? "?"
-        let frontPid = front?.processIdentifier ?? -1
-        logger.info("snap: mouseDown missed — frontmost=\(frontName)/pid=\(frontPid) cursor=\(cursor)")
-
-        // What does AX say for the frontmost app's focused window?
-        if let pid = front?.processIdentifier, let axRect = WindowAX.getRect(pid: pid) {
-            let contains = axRect.contains(cursor)
-            logger.info("snap: miss ax — frontmost=\(frontName) rect=\(axRect) contains(cursor)=\(contains)")
-        } else {
-            logger.info("snap: miss ax — frontmost=\(frontName) rect=<unreadable>")
-        }
-
-        // Would the AX system-wide hit test have rescued this lookup?
-        if let hit = WindowAX.findWindowAtPosition(cursor) {
-            let app = NSRunningApplication(processIdentifier: hit.pid)
-            let bid = app?.bundleIdentifier ?? "?"
-            let ignored = Self.ignoredBundleIDs.contains(bid)
-            logger.info("snap: miss axHitTest — would catch pid=\(hit.pid) bundle=\(bid) origin=\(hit.origin) ignored=\(ignored)")
-        } else {
-            logger.info("snap: miss axHitTest — system-wide AX hit test returned nil")
-        }
-
-        // First: dump every cached window whose frame contains the cursor,
-        // in z-order. windowAtPoint returns the FIRST element that passes its
-        // filter, so this list reveals (a) what was actually first and (b)
-        // whether the stub was shadowed by something higher-z that the filter
-        // didn't catch.
-        let cached = QuartzWindowList.cachedSnapshot()
-        var idxInCache = 0
-        var containingCount = 0
-        for info in cached {
-            if info.frame.contains(cursor) {
-                logger.info("snap: miss containing[\(idxInCache)] — owner=\(info.processName ?? "?") pid=\(info.pid) level=\(info.level) frame=\(info.frame)")
-                containingCount += 1
-            }
-            idxInCache += 1
-        }
-        if containingCount == 0 {
-            logger.info("snap: miss containing — no cached entries contain the cursor (cache size=\(cached.count))")
-        }
-
-        // Also dump cached entries for the frontmost pid (regardless of whether
-        // their frame contains the cursor), so we can spot a duplicate/phantom
-        // entry covering the same pid.
-        var cachedMatching = 0
-        for info in cached where info.pid == frontPid {
-            cachedMatching += 1
-            let contains = info.frame.contains(cursor)
-            logger.info("snap: miss cache — frontmost pid=\(frontPid) owner=\(info.processName ?? "?") level=\(info.level) frame=\(info.frame) contains(cursor)=\(contains)")
-        }
-        if cachedMatching == 0 {
-            logger.info("snap: miss cache — no entries for frontmost pid=\(frontPid) in cached list of \(cached.count) windows")
-        }
-
-        // Then: dump what Quartz sees right now (fresh fetch), so we can
-        // tell whether the cache was simply stale or CGWindowListCopyWindowInfo
-        // flickered.
-        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
-        guard let raw = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
-            logger.info("snap: miss quartz — CGWindowListCopyWindowInfo returned nil")
-            return
-        }
-        var matchingFrontmost = 0
-        for dict in raw {
-            guard let pidNum = dict[kCGWindowOwnerPID as String] as? NSNumber,
-                  pidNum.int32Value == frontPid else { continue }
-            matchingFrontmost += 1
-            let level = (dict[kCGWindowLayer as String] as? NSNumber)?.intValue ?? -999
-            let owner = (dict[kCGWindowOwnerName as String] as? String) ?? "?"
-            let frameDict = dict[kCGWindowBounds as String] as? NSDictionary
-            let frame = frameDict.flatMap { CGRect(dictionaryRepresentation: $0) }
-            let frameStr = frame.map { "\($0)" } ?? "<no bounds>"
-            let contains = frame?.contains(cursor) ?? false
-            logger.info("snap: miss quartz — frontmost pid=\(frontPid) owner=\(owner) level=\(level) frame=\(frameStr) contains(cursor)=\(contains)")
-        }
-        if matchingFrontmost == 0 {
-            logger.info("snap: miss quartz — no entries for frontmost pid=\(frontPid) in list of \(raw.count) windows")
-        }
     }
 
     private func handleMouseDragged(_ event: NSEvent) {

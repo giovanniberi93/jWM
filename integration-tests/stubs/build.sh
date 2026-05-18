@@ -15,26 +15,33 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUILD_DIR="$ROOT/build/test-stubs"
 SRC="$ROOT/integration-tests/stubs/jwm-stub.swift"
 BIN="$BUILD_DIR/jwm-stub"
+OVERLAY_SRC="$ROOT/integration-tests/stubs/overlay-stub.swift"
+OVERLAY_BIN="$BUILD_DIR/overlay-stub"
 
 mkdir -p "$BUILD_DIR"
 swiftc -O "$SRC" -o "$BIN"
+swiftc -O "$OVERLAY_SRC" -o "$OVERLAY_BIN"
 
-NAMES=(JwmStub1 JwmStub2 JwmStub3 JwmStubProblematic)
+NAMES=(JwmStub1 JwmStub2 JwmStub3 JwmStubProblematic JwmStubOverlay)
 BUNDLE_IDS=(
     com.giovanniberi93.jwm.stub1
     com.giovanniberi93.jwm.stub2
     com.giovanniberi93.jwm.stub3
     com.giovanniberi93.jwm.problematic
+    com.giovanniberi93.jwm.overlay
 )
+# JwmStubOverlay uses the overlay binary; the rest share jwm-stub.
+SRC_BIN_FOR=(jwm-stub jwm-stub jwm-stub jwm-stub overlay-stub)
 LSREG="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 
 for i in "${!NAMES[@]}"; do
     name="${NAMES[$i]}"
     bundle_id="${BUNDLE_IDS[$i]}"
+    src_bin="${SRC_BIN_FOR[$i]}"
     app="$BUILD_DIR/$name.app"
     rm -rf "$app"
     mkdir -p "$app/Contents/MacOS"
-    cp "$BIN" "$app/Contents/MacOS/$name"
+    cp "$BUILD_DIR/$src_bin" "$app/Contents/MacOS/$name"
     cat > "$app/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

@@ -7,6 +7,15 @@ source "$ROOT/integration-tests/test-lib.sh"
 
 skip_if_mouse_disabled
 
+# Launch the overlay stub: a borderless level-21 window covering the screen
+# whose bundle id is in jwm's ignoredBundleIDs. This recreates the wild
+# Notification-Center-covers-the-click-point condition that exposed the Quartz
+# windowAtPoint short-circuit (see SnapManager.getWindowInfoUnderCursor's
+# AX fallback). Without this, the fast path almost always succeeds and the
+# fallback is untested.
+open -gb com.giovanniberi93.jwm.overlay >/dev/null 2>&1 || true
+trap 'osascript -e "tell application id \"com.giovanniberi93.jwm.overlay\" to quit" 2>/dev/null || true' EXIT
+
 victim_launch com.giovanniberi93.jwm.stub1
 victim_activate com.giovanniberi93.jwm.stub1
 pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)
