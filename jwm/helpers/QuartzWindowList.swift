@@ -23,6 +23,17 @@ enum QuartzWindowList {
         return windowAtPoint(point, in: cache.value())
     }
 
+    /// All on-screen windows owned by the given pid, filtered to "normal"
+    /// window levels (below Notification Center). Used by `WindowTiler` to
+    /// enumerate an app's windows without an AX hop into that app — same
+    /// motivation as SnapManager's switch to Quartz in commit 9088b8e
+    /// (avoid blocking main thread when the foreground app is slow).
+    /// One WindowServer IPC per call (cached for 100ms), regardless of how
+    /// many windows the app has.
+    static func windowsForPid(_ pid: pid_t) -> [QuartzWindowInfo] {
+        return cache.value().filter { $0.pid == pid && $0.level < notificationCenterLevel }
+    }
+
     // Notification Center sits at level 23. There is no public symbolic
     // constant for it (CGWindowLevel.h tops out at kCGAssistiveTechHighWindow);
     // Rectangle uses the same literal.

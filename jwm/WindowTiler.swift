@@ -9,6 +9,19 @@ enum WindowTiler {
     /// so a weak ref would go nil before the next activation fires.
     private static var lastActiveApp: NSRunningApplication?
 
+    /// Wipe every piece of `WindowTiler` state that can carry between
+    /// integration-test cases: slots (fullscreen window map), the
+    /// defocus-snapshot anchor, and the chord-launch suppression flag. Called
+    /// from the SIGUSR1 handler and from the ctrl+cmd+S abort path. Clearing
+    /// `lastActiveApp` matters because otherwise the next activation's
+    /// defocus path would re-snapshot the previously-frontmost (often a
+    /// user-owned) app and re-populate slots before the test's chord runs.
+    static func resetForIntegrationTest() {
+        slots = SlotState()
+        lastActiveApp = nil
+        suppressDisplaceForBundleID = nil
+    }
+
     /// While non-nil, `displaceIfHalf` refuses to act on the named bundleID.
     /// Set by the chord launch path so that the activation notification fired
     /// during launch (with the app at its *restored* position) doesn't trigger
@@ -72,19 +85,23 @@ enum WindowTiler {
 
         let cgRect = Coords.rect(for: position, on: screen)
 
-        // Displace a full-screen app to the opposite half if we're tiling to a half.
-        // findDisplacementCandidate validates each candidate is still alive +
+        // Displace a full-screen window to the opposite half if we're tiling
+        // to a half. We exclude the *target window* (not the target pid) so a
+        // second window of the same app can correctly displace the first —
+        // see integration-tests/test-cases/19_multi_window_same_app_displacement_bug.sh.
+        // findDisplacementCandidate validates each candidate is alive + still
         // fullscreen-sized; stale entries are pruned in-place.
         let displayID = screen.displayID
         logger.info("tile(\(targetApp.localizedName ?? "unknown"), pid=\(pid)): slots before displacement: \(slots.dump())")
         if let oppositePosition = position.opposite,
-           let candidate = findDisplacementCandidate(excludingPid: pid, display: displayID, screen: screen) {
-            logger.info("Displacing \(appName(candidate)) (pid=\(candidate)) to \(oppositePosition) on screen \(screenIndex) (display \(displayID))")
+           let focusedWinId = WindowAX.getFocusedWindowId(pid: pid),
+           let candidate = findDisplacementCandidate(excludingWindowId: focusedWinId, display: displayID, screen: screen) {
+            logger.info("Displacing \(appName(candidate.pid)) (pid=\(candidate.pid), win=\(candidate.windowId)) to \(oppositePosition) on screen \(screenIndex) (display \(displayID))")
             let oppositeRect = Coords.rect(for: oppositePosition, on: screen)
-            WindowAX.setPosition(pid: candidate, rect: oppositeRect)
-            // Don't touch slots here. The displaced app's `lastActiveApp`
-            // defocus check (next activation) will see it's no longer full
-            // and remove it via snapshotIfFullScreen.
+            WindowAX.setPosition(pid: candidate.pid, windowId: candidate.windowId, rect: oppositeRect)
+            // Don't touch slots here. The displaced window's next snapshot
+            // (defocus path or next onBeforeAction) will see it's no longer
+            // full and remove its entry via snapshotIfFullScreen.
         }
 
         WindowAX.setPosition(pid: pid, rect: cgRect)
@@ -174,16 +191,20 @@ enum WindowTiler {
             WindowAX.setPosition(pid: pid, rect: snapRect)
         }
 
-        guard let candidate = findDisplacementCandidate(excludingPid: pid, display: displayID, screen: screen),
+        // Same per-window exclusion as `tile`: the activated app's focused
+        // window can't displace itself, but a *background* window of the same
+        // app is fair game.
+        guard let focusedWinId = WindowAX.getFocusedWindowId(pid: pid),
+              let candidate = findDisplacementCandidate(excludingWindowId: focusedWinId, display: displayID, screen: screen),
               let oppositePosition = position.opposite else {
             return true
         }
 
         let oppositeRect = Coords.rect(for: oppositePosition, on: screen)
-        logger.info("External activation: displacing \(appName(candidate)) to \(oppositePosition) for \(name)")
-        WindowAX.setPosition(pid: candidate, rect: oppositeRect)
-        // Don't touch slots — defocus path on `candidate` next activation will
-        // see it's no longer full and remove it via snapshotIfFullScreen.
+        logger.info("External activation: displacing \(appName(candidate.pid)) (win=\(candidate.windowId)) to \(oppositePosition) for \(name)")
+        WindowAX.setPosition(pid: candidate.pid, windowId: candidate.windowId, rect: oppositeRect)
+        // Don't touch slots — next snapshot of the displaced window will see
+        // it's no longer full and remove its entry via snapshotIfFullScreen.
         return true
     }
 
@@ -220,54 +241,82 @@ enum WindowTiler {
         }
     }
 
-    /// Snapshot the app's current fullscreen state into `slots`:
-    /// - If its window is fullscreen-sized on its current screen, upsert.
-    /// - Else, remove any prior entry.
-    /// Returns true iff the app was fullscreen-sized.
+    /// Sync `slots` for every window of the given app:
+    /// - Each fullscreen-sized window is upserted (fresh seq → most-recent).
+    /// - Each non-fullscreen window has its prior entry removed.
+    /// Returns true iff the **focused** window is fullscreen-sized — that's
+    /// what `guardActivation`'s early-return logic cares about. Background
+    /// windows still get captured as a side effect so multi-window apps
+    /// remain visible to `findDisplacementCandidate`.
+    ///
+    /// Enumeration uses `QuartzWindowList` (one WindowServer IPC, no AX hop
+    /// into the target app) instead of walking kAXWindows. Reason: this runs
+    /// from `onBeforeAction` on the main thread for every chord, and walking
+    /// AX would scale per-window IPCs at `axMessagingTimeout` each. Same
+    /// motivation as commit 9088b8e's SnapManager rewrite.
     @discardableResult
     static func snapshotIfFullScreen(app: NSRunningApplication) -> Bool {
         let pid = app.processIdentifier
         let name = appName(app)
-        guard let windowRect = WindowAX.getRect(pid: pid) else {
-            logger.info("snapshotIfFullScreen(\(name)): no window rect")
-            slots.remove(pid: pid)
+        let windows = QuartzWindowList.windowsForPid(pid)
+        if windows.isEmpty {
+            logger.info("snapshotIfFullScreen(\(name)): no windows")
+            slots.removeAll(forPid: pid)
             return false
         }
-        guard let screen = screenForApp(app) else {
-            logger.info("snapshotIfFullScreen(\(name)): no screen")
-            slots.remove(pid: pid)
-            return false
-        }
-        let fullRect = Coords.rect(for: .fullScreen, on: screen)
-        guard windowRect.approxEquals(fullRect, tolerance: positionTolerance) else {
-            if slots.contains(pid: pid) {
-                logger.info("snapshotIfFullScreen(\(name)): no longer fullscreen, removing")
+        // One AX call (focused window + getWindowId). Cheap relative to the
+        // old per-window walk; gives us the "focusedFull" return value.
+        let focusedWinId = WindowAX.getFocusedWindowId(pid: pid)
+        var focusedFull = false
+        for window in windows {
+            guard let screen = Coords.screen(containingCG: window.frame) else {
+                if slots.contains(windowId: window.id) {
+                    logger.info("snapshotIfFullScreen(\(name)) win=\(window.id): off-screen, removing")
+                }
+                slots.remove(windowId: window.id)
+                continue
             }
-            slots.remove(pid: pid)
-            return false
+            let fullRect = Coords.rect(for: .fullScreen, on: screen)
+            if window.frame.approxEquals(fullRect, tolerance: positionTolerance) {
+                if !slots.contains(windowId: window.id) {
+                    logger.info("Recording \(name) (pid=\(pid), win=\(window.id)) as fullscreen on display \(screen.displayID)")
+                }
+                slots.upsert(windowId: window.id, pid: pid, displayID: screen.displayID)
+                if window.id == focusedWinId { focusedFull = true }
+            } else {
+                if slots.contains(windowId: window.id) {
+                    logger.info("snapshotIfFullScreen(\(name)) win=\(window.id): no longer full, removing")
+                }
+                slots.remove(windowId: window.id)
+            }
         }
-        if !slots.contains(pid: pid) {
-            logger.info("Recording \(name) (pid=\(pid)) as fullscreen on display \(screen.displayID)")
-        }
-        slots.upsert(pid: pid, displayID: screen.displayID)
-        logger.info("Slots after upsert(\(name), pid=\(pid)): \(slots.dump())")
-        return true
+        logger.info("Slots after snapshotIfFullScreen(\(name)): \(slots.dump())")
+        return focusedFull
     }
 
     /// Find a valid displacement candidate on the given display, excluding the
-    /// app that is about to be tiled. Walks entries newest-first and validates
-    /// each: process running, window readable, still fullscreen-sized. Stale
-    /// entries are pruned in-place and the next candidate is tried.
+    /// caller's own *window* (not pid — a sibling window of the same app is a
+    /// valid victim). Walks entries newest-first and validates each:
+    /// owning process running, window still exists, still fullscreen-sized.
+    /// Stale entries are pruned in-place and the next candidate is tried.
+    ///
+    /// Validation reads the window's current frame from Quartz, not AX, so
+    /// the per-candidate cost stays O(1) regardless of how many windows the
+    /// candidate's app has. The only AX cost in the displacement path is the
+    /// `setPosition(pid:windowId:rect:)` call at the end — and that's
+    /// unavoidable since AX is the write API.
     private static func findDisplacementCandidate(
-        excludingPid: pid_t,
+        excludingWindowId: CGWindowID,
         display: CGDirectDisplayID,
         screen: NSScreen
-    ) -> pid_t? {
+    ) -> (windowId: CGWindowID, pid: pid_t)? {
         let fullRect = Coords.rect(for: .fullScreen, on: screen)
 
-        while let pid = slots.mostRecentFullScreen(forDisplay: display, excluding: excludingPid) {
+        while let candidate = slots.mostRecentFullScreen(forDisplay: display, excluding: excludingWindowId) {
+            let pid = candidate.pid
+            let windowId = candidate.windowId
             let name = appName(pid)
-            logger.info("findDisplacementCandidate: considering pid=\(pid) (\(name)) on display \(display)")
+            logger.info("findDisplacementCandidate: considering win=\(windowId)/pid=\(pid) (\(name)) on display \(display)")
 
             let nsra = NSRunningApplication(processIdentifier: pid)
             let posixAlive = (kill(pid, 0) == 0)
@@ -276,21 +325,21 @@ enum WindowTiler {
                 logger.info("Liveness mismatch pid=\(pid): NSRunningApplication=nil posixAlive=\(posixAlive) inWorkspaceList=\(inWorkspaceList)")
             }
             guard nsra != nil else {
-                logger.info("Pruning \(name) (pid=\(pid)): process dead")
-                slots.remove(pid: pid)
+                logger.info("Pruning \(name) (pid=\(pid), win=\(windowId)): process dead")
+                slots.removeAll(forPid: pid)
                 continue
             }
-            guard let windowRect = WindowAX.getRect(pid: pid) else {
-                logger.info("Pruning \(name) (pid=\(pid)): no window")
-                slots.remove(pid: pid)
+            guard let info = QuartzWindowList.windowsForPid(pid).first(where: { $0.id == windowId }) else {
+                logger.info("Pruning \(name) (pid=\(pid), win=\(windowId)): window gone")
+                slots.remove(windowId: windowId)
                 continue
             }
-            guard windowRect.approxEquals(fullRect, tolerance: positionTolerance) else {
-                logger.info("Pruning \(name) (pid=\(pid)): window=\(windowRect) full=\(fullRect)")
-                slots.remove(pid: pid)
+            guard info.frame.approxEquals(fullRect, tolerance: positionTolerance) else {
+                logger.info("Pruning \(name) (pid=\(pid), win=\(windowId)): window=\(info.frame) full=\(fullRect)")
+                slots.remove(windowId: windowId)
                 continue
             }
-            return pid
+            return candidate
         }
         return nil
     }

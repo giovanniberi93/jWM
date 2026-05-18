@@ -153,6 +153,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let hotkeyManager = HotkeyManager()
     private let snapManager = SnapManager()
     private var accessibilityTimer: Timer?
+    /// Retained so the SIGUSR1 handler keeps firing — DispatchSourceSignal
+    /// is cancelled when its last strong reference drops.
+    private var slotResetSignalSource: DispatchSourceSignal?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Dev/debug and installed builds have different bundle ids but both
@@ -167,6 +170,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         NSApp.setActivationPolicy(.accessory)
+        installSlotResetSignalHandler()
 
         if AXIsProcessTrusted() {
             logger.info("Accessibility trusted, starting hotkeys")
@@ -266,6 +270,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if let front = NSWorkspace.shared.frontmostApplication {
                     WindowTiler.snapshotIfFullScreen(app: front)
                 }
+            },
+            onAbortIntegrationTests: {
+                // Bailout for a wedged integration test run: nuke every
+                // known stub and shut jwm down. Stubs are matched against
+                // BundleIDs.integrationTestStubBundleIDs (a fixed list) so
+                // this can't ever kill a user-owned app — only the known
+                // test victims.
+                logger.error("Aborting integration tests — terminating stubs and exiting jwm")
+                for bundleID in BundleIDs.integrationTestStubBundleIDs {
+                    for app in NSRunningApplication.runningApplications(withBundleIdentifier: bundleID) {
+                        logger.info("Abort: terminating \(app.localizedName ?? bundleID) (pid=\(app.processIdentifier))")
+                        app.terminate()
+                    }
+                }
+                NSApp.terminate(nil)
             }
         )
 
@@ -273,5 +292,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // chord-rehearsal steps can actually fire. Skipped if the user has
         // already finished the tutorial in a prior session.
         OnboardingCoordinator.shared.presentIfFirstRun()
+    }
+
+    /// Listen for SIGUSR1 → clear `WindowTiler.slots`. The integration test
+    /// harness fires this between cases so a stale fullscreen entry recorded
+    /// for a user-owned app (typically the developer's terminal, which sits
+    /// at the fullscreen rect while the suite runs) can't bleed into the
+    /// next test as a phantom displacement candidate. We always honor the
+    /// signal — even outside test mode, since clearing slots is harmless —
+    /// but log an error if `integrationTestMode` isn't set so an accidental
+    /// `kill -USR1` against a normal user session is visible in the log.
+    private func installSlotResetSignalHandler() {
+        // DispatchSource.makeSignalSource requires the default disposition be
+        // SIG_IGN, otherwise the kernel still delivers the signal via the
+        // C-level handler and terminates us.
+        signal(SIGUSR1, SIG_IGN)
+        let source = DispatchSource.makeSignalSource(signal: SIGUSR1, queue: .main)
+        source.setEventHandler {
+            let isIntegrationTest = UserDefaults.standard.bool(forKey: "integrationTestMode")
+            if !isIntegrationTest {
+                logger.error("SIGUSR1: WindowTiler state reset requested outside integrationTestMode — proceeding, but this signal is only expected from the integration-test harness.")
+            } else {
+                logger.info("SIGUSR1: resetting WindowTiler state for next integration test")
+            }
+            WindowTiler.resetForIntegrationTest()
+        }
+        source.resume()
+        slotResetSignalSource = source
     }
 }

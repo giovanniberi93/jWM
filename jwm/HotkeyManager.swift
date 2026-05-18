@@ -13,6 +13,10 @@ final class HotkeyManager {
     /// owner snapshot the current frontmost app's state before focus shifts
     /// or tile geometry changes happen.
     private var onBeforeAction: (() -> Void)?
+    /// Invoked when ctrl+cmd+S is pressed while `integrationTestMode` is set.
+    /// Outside test mode the chord is left untouched and passes through to
+    /// the focused app — see handleEvent's gating.
+    private var onAbortIntegrationTests: (() -> Void)?
 
     // Chord state: after cmd+N, waiting for either cmd release (focus only) or position key (tile)
     private var pendingAppKey: String?
@@ -59,13 +63,15 @@ final class HotkeyManager {
         onTile: @escaping (TilePosition) -> Void,
         onFocusTile: @escaping (String, TilePosition) -> Void,
         onLaunchAll: @escaping () -> Void = {},
-        onBeforeAction: @escaping () -> Void = {}
+        onBeforeAction: @escaping () -> Void = {},
+        onAbortIntegrationTests: @escaping () -> Void = {}
     ) {
         self.onFocus = onFocus
         self.onTile = onTile
         self.onFocusTile = onFocusTile
         self.onLaunchAll = onLaunchAll
         self.onBeforeAction = onBeforeAction
+        self.onAbortIntegrationTests = onAbortIntegrationTests
 
         let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
             | (1 << CGEventType.flagsChanged.rawValue)
@@ -162,6 +168,15 @@ final class HotkeyManager {
             // ctrl+cmd+b → debug marker in logs
             if keyCode == Int64(kVK_ANSI_B) {
                 logger.error("━━━━━━━━━━━━━━━━ ERROR MARKER ━━━━━━━━━━━━━━━━")
+                return nil
+            }
+            // ctrl+cmd+s → abort the integration-test run. Only swallowed
+            // when `integrationTestMode` is set, so normal users keep their
+            // ctrl+cmd+S (or any app-level binding on it) unaffected.
+            if keyCode == Int64(kVK_ANSI_S),
+               UserDefaults.standard.bool(forKey: "integrationTestMode") {
+                logger.info("Integration test abort chord (ctrl+cmd+S) triggered")
+                onAbortIntegrationTests?()
                 return nil
             }
         }

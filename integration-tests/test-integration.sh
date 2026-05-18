@@ -63,6 +63,7 @@ echo
     -app3_bundleID "$STUB3_BUNDLE" \
     -app4_bundleID "$PROB_BUNDLE" \
     -hasCompletedFirstRunTutorial YES \
+    -integrationTestMode YES \
     >"$JWM_LOG" 2>&1 &
 JWM_PID=$!
 
@@ -131,6 +132,16 @@ else
     )
 fi
 for tc in "${test_files[@]}"; do
+    # The abort hotkey (ctrl+cmd+S, gated on integrationTestMode) terminates
+    # jwm cleanly so a wedged test can be killed without leaking stubs. If
+    # jwm is gone for any reason — abort, crash, or external pkill — stop
+    # the suite instead of running a no-op test against a dead event tap.
+    if ! kill -0 "$JWM_PID" 2>/dev/null; then
+        echo
+        red "ABORTED: "
+        echo "jwm (pid $JWM_PID) is no longer running — stopping suite."
+        break
+    fi
     name=$(basename "$tc" .sh)
     echo
     cyan "▶ $name"
@@ -168,6 +179,13 @@ for tc in "${test_files[@]}"; do
     osascript -e "tell application id \"$STUB3_BUNDLE\" to quit" 2>/dev/null || true
     osascript -e "tell application id \"$PROB_BUNDLE\" to quit" 2>/dev/null || true
     sleep 0.2
+    # Then clear jwm's fullscreen slot map. When focus reverts to the
+    # developer's terminal between cases, guardActivation's defocus-promote
+    # may record any of its windows that happens to sit at the fullscreen
+    # rect — phantom entries that would otherwise become displacement
+    # candidates in the next test. The SIGUSR1 handler in
+    # AppDelegate.installSlotResetSignalHandler clears them.
+    kill -USR1 "$JWM_PID" 2>/dev/null || true
 done
 
 echo
