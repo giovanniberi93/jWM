@@ -212,7 +212,7 @@ private struct UseArrowKeysRow: View {
             Text("Keys for tiling windows")
                 .font(.system(size: 13, weight: .medium))
             StatusChip(
-                text: isOn ? "← ↑ ↓ →" : "H J K L",
+                text: isOn ? "← ↓ ↑ →" : "H J K L",
                 fg: DS.blue,
                 bg: DS.blue.opacity(0.15)
             )

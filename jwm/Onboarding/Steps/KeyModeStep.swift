@@ -27,7 +27,7 @@ struct KeyModeStep: View {
                 )
                 modeCard(
                     .arrow,
-                    keys: [("←", "left"), ("↑", "fill"), ("↓", "next\nscreen"), ("→", "right")],
+                    keys: [("←", "left"), ("↓", "fill"), ("↑", "next\nscreen"), ("→", "right")],
                     title: "Arrow keys",
                     sub: "Direction is literal. Easier to discover."
                 )

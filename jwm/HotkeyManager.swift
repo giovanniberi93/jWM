@@ -31,8 +31,8 @@ final class HotkeyManager {
     private let keyCodeToPositionArrows: [Int64: TilePosition] = [
         Int64(kVK_LeftArrow): .left,
         Int64(kVK_RightArrow): .right,
-        Int64(kVK_UpArrow): .fullScreen,
-        Int64(kVK_DownArrow): .nextScreen,
+        Int64(kVK_DownArrow): .fullScreen,
+        Int64(kVK_UpArrow): .nextScreen,
     ]
 
     private var keyCodeToPosition: [Int64: TilePosition] {

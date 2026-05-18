@@ -23,7 +23,7 @@ struct TilingReferenceCard: View {
     /// for the mapping is `HotkeyManager.swift` — keep these in sync with
     /// `keyCodeToPositionLetters` / `keyCodeToPositionArrows`.
     private var dirKeys: (left: String, right: String, full: String, next: String) {
-        useArrowKeys ? ("←", "→", "↑", "↓") : ("H", "L", "J", "K")
+        useArrowKeys ? ("←", "→", "↓", "↑") : ("H", "L", "J", "K")
     }
 
     var body: some View {

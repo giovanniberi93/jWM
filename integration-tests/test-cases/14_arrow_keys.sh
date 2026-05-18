@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# With useArrowKeys preference on, ctrl+cmd+←/→/↑ tile left/right/maximize.
+# With useArrowKeys preference on, ctrl+cmd+←/→/↓ tile left/right/maximize.
 # Verifies HotkeyManager picks up the live defaults value on each lookup.
 set -euo pipefail
 source "$ROOT/integration-tests/test-lib.sh"
@@ -44,14 +44,14 @@ post_arrow_tile $RIGHT_KC
 read -r ex ey ew eh <<<"$(expected_rect right)"
 assert_rect_approx "$pid" "$ex" "$ey" "$ew" "$eh"
 
-# ↑ → maximize
+# ↓ → maximize
 victim_set_rect "$pid" 200 200 600 400
 sleep 0.1
-post_arrow_tile $UP_KC
+post_arrow_tile $DOWN_KC
 read -r ex ey ew eh <<<"$(expected_rect full)"
 assert_rect_approx "$pid" "$ex" "$ey" "$ew" "$eh"
 
-# ↓ → next screen (only when a second screen is connected)
+# ↑ → next screen (only when a second screen is connected)
 if (( $(screen_count) >= 2 )); then
     cur_rect=$(victim_get_rect "$pid")
     read -r cx cy cw ch <<<"$cur_rect"
@@ -61,14 +61,14 @@ if (( $(screen_count) >= 2 )); then
         exit 1
     fi
 
-    post_arrow_tile $DOWN_KC
+    post_arrow_tile $UP_KC
     sleep 0.3
 
     new_rect=$(victim_get_rect "$pid")
     read -r nx ny nw nh <<<"$new_rect"
     new_screen=$(screen_of_rect "$nx" "$ny" "$nw" "$nh")
     if [ "$new_screen" = "$start_screen" ]; then
-        echo "  ↓ did not move window to a different screen (still on $start_screen)" >&2
+        echo "  ↑ did not move window to a different screen (still on $start_screen)" >&2
         echo "  rect: $new_rect" >&2
         exit 1
     fi
