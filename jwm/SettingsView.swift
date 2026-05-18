@@ -533,8 +533,24 @@ private struct VersionFooter: View {
                 .font(.system(size: 10.5, weight: .regular, design: .monospaced))
                 .foregroundStyle(.tertiary)
                 .textSelection(.enabled)
+            Button(action: copyVersion) {
+                Image(systemName: "doc.on.clipboard")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 6)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(.quinary))
+            }
+            .buttonStyle(.plain)
+            .help("Copy version")
             Spacer()
         }
         .padding(.top, 12)
+    }
+
+    private func copyVersion() {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString("v\(BuildInfo.displayString)", forType: .string)
     }
 }
