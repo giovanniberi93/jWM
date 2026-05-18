@@ -60,6 +60,12 @@ screen_of_rect() {
     "$SCREEN_HELPER_BIN" screen-of "$1" "$2" "$3" "$4"
 }
 
+# CG y of the physical top of the given screen's frame.
+screen_top_cg_y() {
+    ensure_screen_helper
+    "$SCREEN_HELPER_BIN" screen-top-cg-y "$1"
+}
+
 # Self-guard for tests that need N screens. Used by tests under
 # test-cases/multi-screen/ so a single-screen run reports them as skipped
 # instead of failing or silently disappearing from the report.

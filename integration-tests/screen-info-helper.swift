@@ -59,6 +59,20 @@ case "expected-rect-on":
     }
     let r = cgRect(pos, screen: NSScreen.screens[idx])
     print("\(Int(r.origin.x)) \(Int(r.origin.y)) \(Int(r.width)) \(Int(r.height))")
+case "screen-top-cg-y":
+    // CG y of the physical top of a screen's frame (above the menu bar,
+    // unlike visibleFrame). Used by drag-to-top-edge tests to aim the
+    // cursor at the actual top edge regardless of arrangement.
+    guard args.count >= 3,
+          let idx = Int(args[2]),
+          idx >= 0, idx < NSScreen.screens.count else {
+        FileHandle.standardError.write(Data("screen-top-cg-y needs <screen-index>\n".utf8))
+        exit(2)
+    }
+    let s = NSScreen.screens[idx]
+    let primaryH = NSScreen.screens[0].frame.height
+    let topCG = primaryH - (s.frame.origin.y + s.frame.height)
+    print(Int(topCG))
 case "screen-of":
     // Args: x y w h in CG coords (top-left primary). Prints index of NSScreen
     // whose frame contains the rect's center, or -1 if none.

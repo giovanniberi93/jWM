@@ -3,6 +3,12 @@ import Cocoa
 final class SnapManager {
     private var globalMonitor: Any?
     private var localMonitor: Any?
+    /// Active event tap that clamps cursor y to >=1 during a tracked window
+    /// drag. Without this, holding the cursor at y=0 (or shoving up fast)
+    /// triggers macOS Mission Control mid-drag, killing the snap. Same trick
+    /// as Rectangle's `ActiveEventMonitor` filter.
+    private var mouseTap: CFMachPort?
+    private var mouseTapSource: CFRunLoopSource?
 
     private var draggedWindowPID: pid_t?
     private var initialWindowOrigin: CGPoint?
@@ -33,6 +39,7 @@ final class SnapManager {
             self?.handleEvent(event)
             return event
         }
+        startMouseTap()
         logger.info("SnapManager started")
     }
 
@@ -45,6 +52,66 @@ final class SnapManager {
             NSEvent.removeMonitor(monitor)
             localMonitor = nil
         }
+        stopMouseTap()
+    }
+
+    // MARK: - Mission Control mitigation
+
+    /// Install a CGEventTap that intercepts `leftMouseDragged` and pins the
+    /// cursor to y >= 1 (CG coords) while a window drag we're tracking is in
+    /// flight. macOS triggers Mission Control when the cursor sits at y=0 for
+    /// a beat or gets shoved upward fast; clamping to y=1 keeps either from
+    /// firing without visibly affecting the cursor. Tap is on the main run
+    /// loop — the callback's work is O(1) per event, well under tap timeout.
+    private func startMouseTap() {
+        let mask: CGEventMask = 1 << CGEventType.leftMouseDragged.rawValue
+        let callback: CGEventTapCallBack = { _, type, event, refcon in
+            guard let refcon = refcon else { return Unmanaged.passUnretained(event) }
+            let manager = Unmanaged<SnapManager>.fromOpaque(refcon).takeUnretainedValue()
+            return manager.handleMouseTap(type: type, event: event)
+        }
+        let refcon = Unmanaged.passUnretained(self).toOpaque()
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: mask,
+            callback: callback,
+            userInfo: refcon
+        ) else {
+            logger.info("SnapManager: failed to create mouse event tap (Mission Control mitigation disabled)")
+            return
+        }
+        mouseTap = tap
+        mouseTapSource = CFMachPortCreateRunLoopSource(nil, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetMain(), mouseTapSource, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+    }
+
+    private func stopMouseTap() {
+        if let tap = mouseTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+        }
+        if let source = mouseTapSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+        }
+        mouseTap = nil
+        mouseTapSource = nil
+    }
+
+    private func handleMouseTap(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let tap = mouseTap { CGEvent.tapEnable(tap: tap, enable: true) }
+            return Unmanaged.passUnretained(event)
+        }
+        // Only clamp while we're actually tracking a window drag. Leaves
+        // unrelated drags (text selection, other apps) untouched.
+        guard draggedWindowPID != nil else { return Unmanaged.passUnretained(event) }
+        let loc = event.location
+        if loc.y < 1 {
+            event.location = CGPoint(x: loc.x, y: 1)
+        }
+        return Unmanaged.passUnretained(event)
     }
 
     private func handleEvent(_ event: NSEvent) {
@@ -67,15 +134,59 @@ final class SnapManager {
 
         let screenPoint = NSEvent.mouseLocation.toCG
         guard let (pid, origin) = getWindowInfoUnderCursor(at: screenPoint) else {
-            if let front = NSWorkspace.shared.frontmostApplication {
-                logger.info("snap: mouseDown missed — frontmost=\(front.localizedName ?? "?") cursor=\(screenPoint)")
-            }
+            logMouseDownMiss(at: screenPoint)
             return
         }
 
         draggedWindowPID = pid
         initialWindowOrigin = origin
         mouseDownLocation = screenPoint
+    }
+
+    /// Dump the full Quartz on-screen window list (frame, pid, level, owner)
+    /// plus the frontmost app's AX rect, so we can tell which side disagrees:
+    /// is Quartz missing the window entirely, listing it at a stale frame, or
+    /// is the cursor genuinely outside every window? The AX fallback line says
+    /// whether `frontmost.AXrect.contains(cursor)` — i.e. whether routing to
+    /// the frontmost app's window would have rescued this drag.
+    private func logMouseDownMiss(at cursor: CGPoint) {
+        let front = NSWorkspace.shared.frontmostApplication
+        let frontName = front?.localizedName ?? "?"
+        let frontPid = front?.processIdentifier ?? -1
+        logger.info("snap: mouseDown missed — frontmost=\(frontName)/pid=\(frontPid) cursor=\(cursor)")
+
+        // What does AX say for the frontmost app's focused window?
+        if let pid = front?.processIdentifier, let axRect = WindowAX.getRect(pid: pid) {
+            let contains = axRect.contains(cursor)
+            logger.info("snap: miss ax — frontmost=\(frontName) rect=\(axRect) contains(cursor)=\(contains)")
+        } else {
+            logger.info("snap: miss ax — frontmost=\(frontName) rect=<unreadable>")
+        }
+
+        // What does Quartz see right now? Bypass the 100ms cache by using a
+        // fresh enumeration so the dump reflects WindowServer's view at the
+        // moment of the miss, not a stale snapshot.
+        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let raw = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
+            logger.info("snap: miss quartz — CGWindowListCopyWindowInfo returned nil")
+            return
+        }
+        var matchingFrontmost = 0
+        for dict in raw {
+            guard let pidNum = dict[kCGWindowOwnerPID as String] as? NSNumber,
+                  pidNum.int32Value == frontPid else { continue }
+            matchingFrontmost += 1
+            let level = (dict[kCGWindowLayer as String] as? NSNumber)?.intValue ?? -999
+            let owner = (dict[kCGWindowOwnerName as String] as? String) ?? "?"
+            let frameDict = dict[kCGWindowBounds as String] as? NSDictionary
+            let frame = frameDict.flatMap { CGRect(dictionaryRepresentation: $0) }
+            let frameStr = frame.map { "\($0)" } ?? "<no bounds>"
+            let contains = frame?.contains(cursor) ?? false
+            logger.info("snap: miss quartz — frontmost pid=\(frontPid) owner=\(owner) level=\(level) frame=\(frameStr) contains(cursor)=\(contains)")
+        }
+        if matchingFrontmost == 0 {
+            logger.info("snap: miss quartz — no entries for frontmost pid=\(frontPid) in list of \(raw.count) windows")
+        }
     }
 
     private func handleMouseDragged(_ event: NSEvent) {
@@ -143,6 +254,10 @@ final class SnapManager {
         guard let screen = NSScreen.screens.first(where: { $0.frame.contains(cursor) }) else { return nil }
         let frame = screen.frame
 
+        // Top wins over sides so corners go to fullscreen rather than half —
+        // jwm has no quarter-tile concept, and "drag up = maximize" matches
+        // Rectangle's default for the top snap area.
+        if cursor.y >= frame.maxY - edgeMargin { return (.fullScreen, screen) }
         if cursor.x <= frame.minX + edgeMargin { return (.left, screen) }
         if cursor.x >= frame.maxX - edgeMargin { return (.right, screen) }
         return nil
