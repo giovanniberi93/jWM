@@ -156,7 +156,7 @@ final class WindowTilerGeometryTests: XCTestCase {
 
 // MARK: - Suppression staleness
 
-/// Belt-and-suspenders coverage for the displaceIfHalf suppression flag.
+/// Belt-and-suspenders coverage for the snapFocusedToExactHalf suppression flag.
 /// The primary clear path (launchAndWaitForWindow's defer) is integration-
 /// tested by integration-tests/test-cases/18_chord_launch_uses_chord_target.sh.
 /// These tests cover the self-heal backstop in isolation.

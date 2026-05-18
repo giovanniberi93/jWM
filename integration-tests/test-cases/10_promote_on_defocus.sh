@@ -14,8 +14,8 @@ stub1_pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)
 stub2_pid=$(victim_get_pid com.giovanniberi93.jwm.stub2)
 
 victim_activate com.giovanniberi93.jwm.stub1
-# Wait for stub1's post-activation poll to expire (WindowTiler.swift:163-174
-# runs displaceIfHalf/promoteIfFullScreen for 0.5s). After this, the ONLY path
+# Wait for stub1's post-activation poll to expire (guardActivation runs
+# syncSlots + snapFocusedToExactHalf for 0.5s). After this, the ONLY path
 # that can promote stub1 is the defocus check on the next activation —
 # which is exactly what this test exercises.
 sleep 0.6

@@ -22,18 +22,19 @@ enum WindowTiler {
         suppressDisplaceForBundleID = nil
     }
 
-    /// While non-nil, `displaceIfHalf` refuses to act on the named bundleID.
-    /// Set by the chord launch path so that the activation notification fired
-    /// during launch (with the app at its *restored* position) doesn't trigger
-    /// a displacement based on the wrong geometry — the chord's own `tile()`
-    /// is the single source of truth for positioning during a chord action.
+    /// While non-nil, `snapFocusedToExactHalf` refuses to act on the named
+    /// bundleID. Set by the chord launch path so that the activation
+    /// notification fired during launch (with the app at its *restored*
+    /// position) doesn't trigger a snap + displacement based on the wrong
+    /// geometry — the chord's own `tile()` is the single source of truth for
+    /// positioning during a chord action.
     ///
     /// Primary clear: the launch path's `defer` in `launchAndWaitForWindow`'s
     /// completion (deterministic; completion is always invoked).
     ///
-    /// Safety backstop: `displaceIfHalf` self-heals any suppression older
-    /// than `maxSuppressionAge` so a bug in the primary path can never let
-    /// a stale flag affect tiling indefinitely.
+    /// Safety backstop: `snapFocusedToExactHalf` self-heals any suppression
+    /// older than `maxSuppressionAge` so a bug in the primary path can never
+    /// let a stale flag affect tiling indefinitely.
     static var suppressDisplaceForBundleID: String? {
         didSet { suppressDisplaceSetAt = suppressDisplaceForBundleID != nil ? Date() : nil }
     }
@@ -60,7 +61,7 @@ enum WindowTiler {
     /// If no app is specified, tiles the frontmost window of the currently active app.
     /// Automatically displaces a full-screen app to the opposite half when needed.
     ///
-    /// Geometry only — slot tracking is updated by `snapshotIfFullScreen` at
+    /// Geometry only — slot tracking is updated by `syncSlots` at
     /// action boundaries (HotkeyManager `onBeforeAction` and `guardActivation`'s
     /// defocus path), not from inside `tile`.
     static func tile(_ position: TilePosition, app: NSRunningApplication? = nil, targetScreen: NSScreen? = nil) {
@@ -101,7 +102,7 @@ enum WindowTiler {
             WindowAX.setPosition(pid: candidate.pid, windowId: candidate.windowId, rect: oppositeRect)
             // Don't touch slots here. The displaced window's next snapshot
             // (defocus path or next onBeforeAction) will see it's no longer
-            // full and remove its entry via snapshotIfFullScreen.
+            // full and remove its entry via syncSlots.
         }
 
         WindowAX.setPosition(pid: pid, rect: cgRect)
@@ -151,64 +152,69 @@ enum WindowTiler {
               now.timeIntervalSince(setAt) > maxSuppressionAge else {
             return false
         }
-        logger.error("displaceIfHalf: clearing stale suppression for \(suppressed) (age > \(maxSuppressionAge)s)")
+        logger.error("clearSuppressionIfStale: clearing stale suppression for \(suppressed) (age > \(maxSuppressionAge)s)")
         suppressDisplaceForBundleID = nil
         return true
     }
 
+    /// If the app's focused window is approximately at a half position
+    /// (left/right), snap it to the *exact* half rect and return both the
+    /// matched position and the screen it's on. Returns nil if not at a half,
+    /// if the window/screen can't be read, or if displacement is currently
+    /// suppressed (chord-launch path in flight). Callers pair this with
+    /// `displaceFullScreenSibling` to finish the half-half layout.
     @discardableResult
-    static func displaceIfHalf(app: NSRunningApplication) -> Bool {
+    static func snapFocusedToExactHalf(for app: NSRunningApplication) -> (position: TilePosition, screen: NSScreen)? {
         let pid = app.processIdentifier
         let name = appName(app)
         clearSuppressionIfStale()
         if let suppressed = suppressDisplaceForBundleID, app.bundleIdentifier == suppressed {
-            logger.info("displaceIfHalf(\(name)): suppressed — chord launch in flight for \(suppressed)")
-            return false
+            logger.info("snapFocusedToExactHalf(\(name)): suppressed — chord launch in flight for \(suppressed)")
+            return nil
         }
         guard let windowRect = WindowAX.getRect(pid: pid) else {
-            logger.info("displaceIfHalf: no window rect for \(name)")
-            return false
+            logger.info("snapFocusedToExactHalf: no window rect for \(name)")
+            return nil
         }
         guard let screen = screenForApp(app) else {
-            logger.info("displaceIfHalf: no screen for \(name)")
-            return false
+            logger.info("snapFocusedToExactHalf: no screen for \(name)")
+            return nil
         }
-        let displayID = screen.displayID
-
-        let leftRect = Coords.rect(for: .left, on: screen)
-        let rightRect = Coords.rect(for: .right, on: screen)
-        logger.info("displaceIfHalf(\(name)): windowRect=\(windowRect) leftRect=\(leftRect) rightRect=\(rightRect) displayID=\(displayID)")
-
         guard let position = matchHalfPosition(windowRect: windowRect, screen: screen) else {
-            logger.info("displaceIfHalf(\(name)): no half match")
-            return false
+            logger.info("snapFocusedToExactHalf(\(name)): no half match (windowRect=\(windowRect) displayID=\(screen.displayID))")
+            return nil
         }
-
-        // Snap the activated app to the exact half position
         let snapRect = Coords.rect(for: position, on: screen)
         if windowRect != snapRect {
             logger.info("Snapping \(name) to exact \(position)")
             WindowAX.setPosition(pid: pid, rect: snapRect)
         }
-
-        // Same per-window exclusion as `tile`: the activated app's focused
-        // window can't displace itself, but a *background* window of the same
-        // app is fair game.
-        guard let focusedWinId = WindowAX.getFocusedWindowId(pid: pid),
-              let candidate = findDisplacementCandidate(excludingWindowId: focusedWinId, display: displayID, screen: screen),
-              let oppositePosition = position.opposite else {
-            return true
-        }
-
-        let oppositeRect = Coords.rect(for: oppositePosition, on: screen)
-        logger.info("External activation: displacing \(appName(candidate.pid)) (win=\(candidate.windowId)) to \(oppositePosition) for \(name)")
-        WindowAX.setPosition(pid: candidate.pid, windowId: candidate.windowId, rect: oppositeRect)
-        // Don't touch slots — next snapshot of the displaced window will see
-        // it's no longer full and remove its entry via snapshotIfFullScreen.
-        return true
+        return (position, screen)
     }
 
-    /// Poll briefly, retrying snapshotIfFullScreen and displaceIfHalf until the
+    /// Move a fullscreen-tracked sibling on `screen` to the given half
+    /// position, so the activated app's half and its sibling's half together
+    /// tile the screen. Excludes the activated app's *focused* window — a
+    /// background window of the same app is still a valid sibling. No-op if
+    /// no candidate is found. Doesn't mutate slots; the next syncSlots over
+    /// the displaced window will see it's no longer fullscreen.
+    static func displaceFullScreenSibling(for app: NSRunningApplication, to position: TilePosition, on screen: NSScreen) {
+        let pid = app.processIdentifier
+        let name = appName(app)
+        guard let focusedWinId = WindowAX.getFocusedWindowId(pid: pid) else {
+            logger.info("displaceFullScreenSibling(\(name)): no focused windowId")
+            return
+        }
+        guard let candidate = findDisplacementCandidate(excludingWindowId: focusedWinId, display: screen.displayID, screen: screen) else {
+            return
+        }
+        let oppositeRect = Coords.rect(for: position, on: screen)
+        logger.info("External activation: displacing \(appName(candidate.pid)) (win=\(candidate.windowId)) to \(position) for \(name)")
+        WindowAX.setPosition(pid: candidate.pid, windowId: candidate.windowId, rect: oppositeRect)
+    }
+
+    /// Poll briefly, retrying `syncSlots` and (if the focused window is at a
+    /// half) `snapFocusedToExactHalf` + `displaceFullScreenSibling` until the
     /// app's window settles. For already-running apps this fires on the first
     /// iteration; for freshly launched apps (e.g. via Spotlight) it retries
     /// until the window appears.
@@ -219,7 +225,7 @@ enum WindowTiler {
         // activation event would have fired for them); also removes the entry
         // for apps that just got displaced from full to half.
         if let prev = lastActiveApp, prev.processIdentifier != app.processIdentifier {
-            if snapshotIfFullScreen(app: prev) {
+            if syncSlots(for: prev) {
                 logger.info("Recorded \(prev.localizedName ?? "unknown") (pid=\(prev.processIdentifier)) as fullscreen on defocus")
             }
         }
@@ -233,8 +239,12 @@ enum WindowTiler {
                 if NSRunningApplication(processIdentifier: pid) == nil { return }
                 var done = false
                 DispatchQueue.main.sync {
-                    if snapshotIfFullScreen(app: app) { done = true; return }
-                    if displaceIfHalf(app: app) { done = true; return }
+                    if syncSlots(for: app) { done = true; return }
+                    guard let result = snapFocusedToExactHalf(for: app) else { return }
+                    done = true
+                    if let opposite = result.position.opposite {
+                        displaceFullScreenSibling(for: app, to: opposite, on: result.screen)
+                    }
                 }
                 if done { return }
             }
@@ -255,12 +265,12 @@ enum WindowTiler {
     /// AX would scale per-window IPCs at `axMessagingTimeout` each. Same
     /// motivation as commit 9088b8e's SnapManager rewrite.
     @discardableResult
-    static func snapshotIfFullScreen(app: NSRunningApplication) -> Bool {
+    static func syncSlots(for app: NSRunningApplication) -> Bool {
         let pid = app.processIdentifier
         let name = appName(app)
         let windows = QuartzWindowList.windowsForPid(pid)
         if windows.isEmpty {
-            logger.info("snapshotIfFullScreen(\(name)): no windows")
+            logger.info("syncSlots(\(name)): no windows")
             slots.removeAll(forPid: pid)
             return false
         }
@@ -271,7 +281,7 @@ enum WindowTiler {
         for window in windows {
             guard let screen = Coords.screen(containingCG: window.frame) else {
                 if slots.contains(windowId: window.id) {
-                    logger.info("snapshotIfFullScreen(\(name)) win=\(window.id): off-screen, removing")
+                    logger.info("syncSlots(\(name)) win=\(window.id): off-screen, removing")
                 }
                 slots.remove(windowId: window.id)
                 continue
@@ -285,12 +295,12 @@ enum WindowTiler {
                 if window.id == focusedWinId { focusedFull = true }
             } else {
                 if slots.contains(windowId: window.id) {
-                    logger.info("snapshotIfFullScreen(\(name)) win=\(window.id): no longer full, removing")
+                    logger.info("syncSlots(\(name)) win=\(window.id): no longer full, removing")
                 }
                 slots.remove(windowId: window.id)
             }
         }
-        logger.info("Slots after snapshotIfFullScreen(\(name)): \(slots.dump())")
+        logger.info("Slots after syncSlots(\(name)): \(slots.dump())")
         return focusedFull
     }
 

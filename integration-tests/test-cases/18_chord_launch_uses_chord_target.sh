@@ -6,10 +6,11 @@
 # Bug shape: when the chord launches a cold app, macOS fires
 # NSWorkspace.didActivateApplicationNotification → WindowTiler.guardActivation
 # while the new window is still at its restored position. guardActivation's
-# poll calls displaceIfHalf, which reads the *restored* geometry and
-# displaces the fullscreen sibling to the wrong half. The chord's own
-# tile() then can't recover because the sibling is no longer fullscreen
-# (it just got moved) and gets pruned from the candidate list.
+# poll calls snapFocusedToExactHalf + displaceFullScreenSibling, which read
+# the *restored* geometry and displace the fullscreen sibling to the wrong
+# half. The chord's own tile() then can't recover because the sibling is no
+# longer fullscreen (it just got moved) and gets pruned from the candidate
+# list.
 #
 # Setup: stub1 fullscreen and tracked in slots. Pre-seed stub2's first
 # window to land at the RIGHT half. Chord cmd+2+H asks for stub2 on LEFT.
@@ -70,8 +71,8 @@ assert_rect_approx "$stub2_pid" "$lx" "$ly" "$lw" "$lh" || {
 # The real regression check: stub1 must be displaced to RIGHT (opposite of
 # the chord's target). Without suppressDisplaceForBundleID it ends up on
 # LEFT (opposite of stub2's restored frame) — picked by the activation-time
-# displaceIfHalf race rather than by the chord's tile().
+# snap+displace race rather than by the chord's tile().
 assert_rect_approx "$stub1_pid" "$rx" "$ry" "$rw" "$rh" || {
-    echo "  stub1 not displaced to right — activation-time displaceIfHalf likely fired on stub2's restored geometry" >&2
+    echo "  stub1 not displaced to right — activation-time snap+displace likely fired on stub2's restored geometry" >&2
     exit 1
 }

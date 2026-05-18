@@ -236,12 +236,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     app.activate()
                 } else {
                     logger.info("App \(bundleID) not running or has no windows, launching + tiling...")
-                    // Block guardActivation's displaceIfHalf from acting on
-                    // the launching app's restored geometry — our tile() below
-                    // owns positioning for this chord. The flag is cleared in
-                    // the completion (deterministic: main queue is serial, so
-                    // no displaceIfHalf can interleave between entry and exit,
-                    // and by exit the window is at the chord's target).
+                    // Block guardActivation's snapFocusedToExactHalf from
+                    // acting on the launching app's restored geometry — our
+                    // tile() below owns positioning for this chord. The flag
+                    // is cleared in the completion (deterministic: main queue
+                    // is serial, so no snap/displace can interleave between
+                    // entry and exit, and by exit the window is at the
+                    // chord's target).
                     WindowTiler.suppressDisplaceForBundleID = bundleID
                     AppFocuser.launchAndWaitForWindow(bundleID: bundleID) { app in
                         defer {
@@ -268,7 +269,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 // NSWorkspace activation event would fire (e.g. ctrl+cmd+J on the
                 // already-focused app, followed immediately by a chord).
                 if let front = NSWorkspace.shared.frontmostApplication {
-                    WindowTiler.snapshotIfFullScreen(app: front)
+                    WindowTiler.syncSlots(for: front)
                 }
             },
             onAbortIntegrationTests: {
