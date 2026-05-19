@@ -34,17 +34,13 @@ If any of these choices look stale when you re-read this doc, STOP and re-confir
 ## Phase 3 — First release artifact
 
 - [ ] In the main jwm repo on `main`, decide the first version. Default: `v0.1`. Confirm with the user before tagging.
-- [ ] Tag and push: `git tag v0.1 && git push origin v0.1`. Tagging BEFORE building is important — the version script reads `git describe`, so the build embeds the right version.
-- [ ] Run `make release` then `./scripts/package_release.sh` (built in Phase 1). Output: `build/release/jWM-0.1.zip`.
-- [ ] Sanity check the zip: unzip to a temp dir, `open jWM.app`, confirm version string shows `0.1.0+<sha>` (no `-dirty`, no `(dev)`).
-- [ ] Compute the SHA256: `shasum -a 256 build/release/jWM-0.1.zip`. Save the hex digest.
-- [ ] Create the GitHub release and upload the zip:
+- [ ] Run the release script:
   ```
-  gh release create v0.1 build/release/jWM-0.1.zip \
-    --title "v0.1" \
-    --notes "First Homebrew release. See README for install instructions."
+  ./scripts/release.sh v0.1 "First Homebrew release. See README for install instructions."
   ```
-  Keep the release notes terse — the user can edit them after.
+  The script tags HEAD, pushes the tag, builds and packages the zip via `package_release.sh`, and creates the GitHub release with the zip attached. Refuses to run if the working tree is dirty. Notes argument is optional — omit it to use `gh --generate-notes`.
+- [ ] Sanity check the zip at `build/jWM-0.1.zip`: unzip to a temp dir, `open jwm.app`, confirm version string shows `0.1.0+<sha>` (no `-dirty`, no `(dev)`).
+- [ ] Note the SHA256 printed by `package_release.sh` — paste it into `Casks/jwm.rb` in Phase 4.
 
 ## Phase 4 — Write the cask
 
@@ -113,9 +109,7 @@ If any of these choices look stale when you re-read this doc, STOP and re-confir
 ## Reference — for future releases (not part of first publish)
 
 For subsequent versions, the loop is:
-1. Tag `vX.Y` on main, push tag.
-2. `make release && ./scripts/package_release.sh`.
-3. `gh release create vX.Y build/release/jWM-X.Y.zip --notes "…"`.
-4. In the tap repo, update `version` and `sha256` in `Casks/jwm.rb`, commit, push.
+1. On main with a clean tree: `./scripts/release.sh vX.Y` (omit notes to use `--generate-notes`, or pass them as the 2nd argument).
+2. In the tap repo, update `version` and `sha256` in `Casks/jwm.rb` from the script's SHA256 output, commit, push.
 
 This whole loop is a candidate for a GitHub Actions workflow once the first release proves the pipeline. Out of scope for this doc.
