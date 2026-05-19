@@ -17,19 +17,19 @@ If any of these choices look stale when you re-read this doc, STOP and re-confir
 
 ## Phase 1 — Repo prep (one-time)
 
-- [ ] Add a `release` target to `Makefile` that runs `xcodebuild -project jwm.xcodeproj -scheme jwm -configuration Release -derivedDataPath build/release build`, producing `build/release/Build/Products/Release/jwm.app`.
-- [ ] In the Xcode project's Release config, confirm `CODE_SIGN_IDENTITY = "-"` (ad-hoc) and `CODE_SIGN_STYLE = Manual` so the build doesn't require a team. Hardened runtime is fine to keep on but not required.
-- [ ] Verify `scripts/generate_version.sh` runs in Release builds (it's wired via a Run Script build phase — check the phase is enabled for Release).
-- [ ] Confirm the Release build launches cleanly: `make release && open build/release/Build/Products/Release/jwm.app`. The displayed version should NOT contain `(dev)` (that suffix is Debug-only).
-- [ ] Add a release packaging script `scripts/package_release.sh` that: (a) calls the release build, (b) re-signs ad-hoc with stable identifier (`codesign --force --deep --sign - --identifier com.giovanniberi93.jwm build/release/Build/Products/Release/jwm.app`), (c) zips it into `build/release/jWM-<version>.zip` using `ditto -c -k --sequesterRsrc --keepParent` (NOT `zip` — that strips macOS metadata and breaks the bundle).
-- [ ] Update root `README.md` with an "Install via Homebrew" section. Include the `brew tap` + `brew install --cask` commands, AND the Gatekeeper bypass instructions (right-click → Open, or `xattr -dr com.apple.quarantine`).
+- [x] Add a `release` target to `Makefile` that runs `xcodebuild -project jwm.xcodeproj -scheme jwm -configuration Release -derivedDataPath build/release build`, producing `build/release/Build/Products/Release/jwm.app`.
+- [x] In the Xcode project's Release config, confirm `CODE_SIGN_IDENTITY = "-"` (ad-hoc) and `CODE_SIGN_STYLE = Manual` so the build doesn't require a team. Hardened runtime is fine to keep on but not required.
+- [x] Verify `scripts/generate_version.sh` runs in Release builds (it's wired via a Run Script build phase — check the phase is enabled for Release).
+- [x] Confirm the Release build launches cleanly: `make release && open build/release/Build/Products/Release/jwm.app`. The displayed version should NOT contain `(dev)` (that suffix is Debug-only).
+- [x] Add a release packaging script `scripts/package_release.sh` that: (a) calls the release build, (b) re-signs ad-hoc with stable identifier (`codesign --force --deep --sign - --identifier com.giovanniberi93.jwm build/release/Build/Products/Release/jwm.app`), (c) zips it into `build/release/jWM-<version>.zip` using `ditto -c -k --sequesterRsrc --keepParent` (NOT `zip` — that strips macOS metadata and breaks the bundle).
+- [x] Update root `README.md` with an "Install via Homebrew" section. Include the `brew tap` + `brew install --cask` commands, AND the Gatekeeper bypass instructions (right-click → Open, or `xattr -dr com.apple.quarantine`).
 
 ## Phase 2 — Create the tap repo (one-time)
 
-- [ ] Create the GitHub repo: `gh repo create giovanniberi93/homebrew-jwm --public --description "Homebrew tap for jwm"`. Name MUST start with `homebrew-` for Homebrew to recognize it as a tap.
-- [ ] Clone it to `/Users/giovanni.beri/workspace/homebrew-jwm`.
-- [ ] Create directory structure: `Casks/` at the repo root.
-- [ ] Write `README.md` in the tap repo with install instructions (`brew install --cask giovanniberi93/jwm/jwm`) and the Gatekeeper bypass note.
+- [x] Create the GitHub repo: `gh repo create giovanniberi93/homebrew-jwm --public --description "Homebrew tap for jwm"`. Name MUST start with `homebrew-` for Homebrew to recognize it as a tap.
+- [x] Clone it to `/Users/giovanni.beri/workspace/homebrew-jwm`.
+- [x] Create directory structure: `Casks/` at the repo root.
+- [x] Write `README.md` in the tap repo with install instructions (`brew install --cask giovanniberi93/jwm/jwm`) and the Gatekeeper bypass note.
 
 ## Phase 3 — First release artifact
 

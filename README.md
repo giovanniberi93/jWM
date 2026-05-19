@@ -115,18 +115,3 @@ jWM needs Accessibility access to manage windows. macOS will prompt on first lau
 make reset-accessibility-permissions
 ```
 
-## Development
-
-Building from source requires [Xcode](https://xcodereleases.com/) (developed against Xcode 26.3 on macOS Tahoe 26.3.1).
-
-- `make dev` — build and run without installing.
-- `make install` — build and install into `/Applications/jWM.app`.
-
-## Contributors
-
-- **janzo**
-- **Claude** <img src="https://media.tenor.com/WvYJnr85GLoAAAAi/cl aude-claude-code.gif" width="20" />
-
-## License
-
-Do whatever you want with jWM.
