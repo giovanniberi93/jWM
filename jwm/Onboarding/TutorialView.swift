@@ -6,7 +6,7 @@ struct TutorialView: View {
     @StateObject private var model: TutorialModel
     let onFinish: () -> Void
 
-    @AppStorage("useArrowKeys") private var useArrowKeys: Bool = false
+    @AppStorage("useArrowKeys") private var useArrowKeys: Bool = true
 
     init(model: TutorialModel, onFinish: @escaping () -> Void) {
         _model = StateObject(wrappedValue: model)

@@ -6,7 +6,7 @@ import SwiftUI
 struct DoneStep: View {
     let onFinish: () -> Void
 
-    @AppStorage("useArrowKeys") private var useArrowKeys: Bool = false
+    @AppStorage("useArrowKeys") private var useArrowKeys: Bool = true
 
     var body: some View {
         VStack(spacing: 0) {

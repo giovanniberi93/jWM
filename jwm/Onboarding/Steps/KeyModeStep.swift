@@ -7,7 +7,7 @@ struct KeyModeStep: View {
     let onBack: () -> Void
     let onContinue: () -> Void
 
-    @AppStorage("useArrowKeys") private var useArrowKeys: Bool = false
+    @AppStorage("useArrowKeys") private var useArrowKeys: Bool = true
     @State private var pickedMode: KeyMode? = nil
 
     enum KeyMode: String { case vim, arrow }

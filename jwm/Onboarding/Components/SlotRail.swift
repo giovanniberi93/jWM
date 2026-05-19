@@ -6,6 +6,7 @@ import SwiftUI
 /// two surfaces stay pixel-identical.
 struct SlotRail: View {
     let targetSlot: Int
+    var modifiers: [String]? = nil
 
     private static let order = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]
     @State private var hoveredSlot: Int? = nil
@@ -36,7 +37,7 @@ struct SlotRail: View {
             }
         }
         .padding(.horizontal, 14)
-        .padding(.top, 24)
+        .padding(.top, modifiers == nil ? 24 : 34)
         .padding(.bottom, 14)
         .frame(maxWidth: .infinity)
         .background(RoundedRectangle(cornerRadius: 12).fill(.quinary))
@@ -44,5 +45,8 @@ struct SlotRail: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(.separator, lineWidth: 1)
         )
+        .overlay(alignment: .topLeading) {
+            if let modifiers { ChordCornerTab(modifiers: modifiers) }
+        }
     }
 }

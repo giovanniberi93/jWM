@@ -36,7 +36,8 @@ final class HotkeyManager {
     ]
 
     private var keyCodeToPosition: [Int64: TilePosition] {
-        UserDefaults.standard.bool(forKey: "useArrowKeys") ? keyCodeToPositionArrows : keyCodeToPositionLetters
+        let useArrows = UserDefaults.standard.object(forKey: "useArrowKeys") as? Bool ?? true
+        return useArrows ? keyCodeToPositionArrows : keyCodeToPositionLetters
     }
 
     private let keyCodeToAppNumber: [Int64: Int] = [

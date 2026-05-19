@@ -5,12 +5,13 @@
 
 <p align="center">A simple tiling window manager for MacOS.</p>
 <p align="center">It combines app focusing and window tiling into a single key-chord interaction.</p>
+<p align="center">(Vim-like keybindings supported!)</p>
 
 <table>
   <tr>
     <th>App Focusing<br><code>⌘</code> + <code>&lt;N&gt;</code></th>
-    <th>Window Tiling<br><code>⌘</code> + <code>⌃</code> + <code>h</code>/<code>j</code>/<code>k</code>/<code>l</code><br>(or mouse)</th>
-    <th>✨ App Focusing +<br>Window Tiling ✨<br><code>⌘</code> + <code>&lt;N&gt;</code> + <code>h</code>/<code>j</code>/<code>k</code>/<code>l</code></th>
+    <th>Window Tiling<br><code>⌘</code> + <code>⌃</code> + <code>←</code>/<code>↓</code>/<code>↑</code>/<code>→</code><br>(or mouse)</th>
+    <th>✨ App Focusing +<br>Window Tiling ✨<br><code>⌘</code> + <code>&lt;N&gt;</code> + <code>←</code>/<code>↓</code>/<code>↑</code>/<code>→</code></th>
   </tr>
   <tr>
     <td>
@@ -63,28 +64,30 @@ The app bindings can then be used to focus (or launch) the corresponding apps.
 
 Tile the currently focused window:
 
-| Keys | Action |
-|------|--------|
-| `⌃`+`⌘`+`h` | Left half of the screen |
-| `⌃`+`⌘`+`l` | Right half of the screen |
-| `⌃`+`⌘`+`j` | Full screen |
-| `⌃`+`⌘`+`k` | Move to next screen (fullscreen) |
+| Keys | Vim keys | Action |
+|------|----------|--------|
+| `⌃`+`⌘`+`←` | `⌃`+`⌘`+`h` | Left half of the screen |
+| `⌃`+`⌘`+`→` | `⌃`+`⌘`+`l` | Right half of the screen |
+| `⌃`+`⌘`+`↓` | `⌃`+`⌘`+`j` | Full screen |
+| `⌃`+`⌘`+`↑` | `⌃`+`⌘`+`k` | Move to next screen (fullscreen) |
 
-> ***Wait, no screen thirds, or horizontal halves? Why `h`/`l`/`j`/`k`?***
+> ***Wait, no screen thirds, or horizontal halves?***
 >
 > I pretty much only use vertical screen halves, so I'm focusing on those now.
-> 
-> `h`/`l`/`j`/`k` are vim-like keybindings, they're convenient because they live in the home row of your keyboard.
+>
+> ***Why both arrows and `h`/`j`/`k`/`l`?***
+>
+> Arrows are the default, but there's a settingto switch to vim-like (`h`/`j`/`k`/`l`) keys instead: same layout, just on the home row.
 ### Focusing and tiling a different app
 
 After pressing `⌘`+`<N>` or `⌘`+`⇧`+`<N>` to select an app, keep holding `⌘` and press a position key to tile the window of the selected app:
 
-| Key | Position |
-|-----|----------|
-| `h` | Left half of the screen |
-| `l` | Right half of the screen |
-| `j` | Full screen |
-| `k` | Move to next screen (fullscreen) |
+| Key | Vim key | Position |
+|-----|---------|----------|
+| `←` | `h` | Left half of the screen |
+| `→` | `l` | Right half of the screen |
+| `↓` | `j` | Full screen |
+| `↑` | `k` | Move to next screen (fullscreen) |
 
 ### Launch all configured apps
 
@@ -96,17 +99,9 @@ Drag any window to the left or right screen edge to tile it. A preview overlay s
 
 ## Troubleshooting
 
-### Disable macOS built-in window tiling
+### Disable conflicting macOS built-in window tiling
 
-macOS Sequoia has its own drag-to-edge tiling that conflicts with jWM. Disable it:
-
-**Option A:** Open jWM Settings, click "Go to settings" and disable the "Drag windows to left or right edge of screen to tile".
-
-**Option B:** Run in terminal:
-
-```bash
-defaults write com.apple.WindowManager EnableTilingByEdgeDrag -bool false
-```
+macOS has its own drag-to-edge tiling that conflicts with jWM. Check the "Conflicting macOS settings" section in the settings to make sure all macOS settings are set properly.
 
 ### Reset accessibility permissions
 

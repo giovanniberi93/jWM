@@ -27,10 +27,7 @@ struct AppPickerStep: View {
         VStack(alignment: .leading, spacing: 0) {
             StepHeader(eyebrow: eyebrow, heading: heading, lede: lede)
 
-            modKeyTag
-                .padding(.top, 4)
-
-            SlotRail(targetSlot: slot)
+            SlotRail(targetSlot: slot, modifiers: ["⌘"])
                 .padding(.top, 10)
 
             Text("CHOOSE FROM YOUR INSTALLED APPS")
@@ -57,33 +54,4 @@ struct AppPickerStep: View {
         }
     }
 
-    private var modKeyTag: some View {
-        HStack(spacing: 4) {
-            keyBadge("⌘", dashed: false)
-            Text("+").foregroundStyle(TutorialTokens.ink3).font(TutorialTokens.mono)
-            keyBadge("\(slot)", dashed: false)
-        }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 5)
-        .background(RoundedRectangle(cornerRadius: 7).fill(.quinary))
-    }
-
-    private func keyBadge(_ glyph: String, dashed: Bool) -> some View {
-        Text(glyph)
-            .font(.system(size: 11, weight: .medium, design: .monospaced))
-            .foregroundStyle(dashed ? TutorialTokens.ink3 : TutorialTokens.ink2)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 1)
-            .background(
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(dashed ? AnyShapeStyle(Color.clear) : AnyShapeStyle(.background))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 4)
-                    .strokeBorder(
-                        .separator,
-                        style: StrokeStyle(lineWidth: 1, dash: dashed ? [2, 2] : [])
-                    )
-            )
-    }
 }

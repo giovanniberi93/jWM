@@ -33,9 +33,8 @@ struct SettingsView: View {
 
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var macOSTilingEnabled = Self.isMacOSTilingEnabled()
-    @State private var titleBarDoubleClickAction = Self.titleBarDoubleClickAction()
     @State private var showResetConfirm = false
-    @AppStorage("useArrowKeys") private var useArrowKeys: Bool = false
+    @AppStorage("useArrowKeys") private var useArrowKeys: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -74,10 +73,6 @@ struct SettingsView: View {
                         macOSTilingEnabled: macOSTilingEnabled,
                         openSettings: openMacOSTilingSettings
                     )
-                    TitleBarDoubleClickRow(
-                        action: titleBarDoubleClickAction,
-                        openSettings: openMacOSTilingSettings
-                    )
                 }
                 .padding(.bottom, 22)
             }
@@ -108,7 +103,6 @@ struct SettingsView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             macOSTilingEnabled = Self.isMacOSTilingEnabled()
-            titleBarDoubleClickAction = Self.titleBarDoubleClickAction()
             launchAtLogin = SMAppService.mainApp.status == .enabled
         }
         .alert("Clear all app bindings?",
@@ -156,30 +150,13 @@ struct SettingsView: View {
     }
 
     private static func isMacOSTilingEnabled() -> Bool {
-        let task = Process()
-        task.launchPath = "/usr/bin/defaults"
-        task.arguments = ["read", "com.apple.WindowManager", "EnableTilingByEdgeDrag"]
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = FileHandle.nullDevice
-        task.launch()
-        task.waitUntilExit()
-        let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return output != "0"
+        guard #available(macOS 15, *),
+              let defaults = UserDefaults(suiteName: "com.apple.WindowManager")
+        else { return false }
+        if defaults.object(forKey: "EnableTilingByEdgeDrag") == nil { return true }
+        return defaults.bool(forKey: "EnableTilingByEdgeDrag")
     }
 
-    private static func titleBarDoubleClickAction() -> String {
-        let task = Process()
-        task.launchPath = "/usr/bin/defaults"
-        task.arguments = ["read", "-g", "AppleActionOnDoubleClick"]
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = FileHandle.nullDevice
-        task.launch()
-        task.waitUntilExit()
-        return String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    }
 }
 
 // MARK: - Other options rows
@@ -266,41 +243,6 @@ private struct EdgeTilingRow: View {
     }
 }
 
-private struct TitleBarDoubleClickRow: View {
-    let action: String
-    let openSettings: () -> Void
-
-    private var isFill: Bool { action.caseInsensitiveCompare("Fill") == .orderedSame }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Window title bar double-click action")
-                    .font(.system(size: 13, weight: .medium))
-                HStack(spacing: 6) {
-                    if isFill {
-                        StatusChip(text: "OK", fg: DS.green, bg: DS.okBg)
-                        Text("Already set to Fill — full mouse support for window tiling")
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(.secondary)
-                    } else {
-                        StatusChip(text: "FIX", fg: DS.amber, bg: DS.amberBg)
-                        Text("Should be set to Fill — no fullscreen support")
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            Spacer(minLength: 0)
-            Button("Open Settings", action: openSettings)
-                .controlSize(.small)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(RoundedRectangle(cornerRadius: 8).fill(.quinary))
-    }
-}
-
 private struct StatusChip: View {
     let text: String
     let fg: Color
@@ -356,52 +298,7 @@ private struct KeyRow: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(.separator, lineWidth: 1)
         )
-        .overlay(alignment: .topLeading) { cornerTab }
-    }
-
-    private var cornerTab: some View {
-        let shape = UnevenRoundedRectangle(
-            cornerRadii: .init(topLeading: 12, bottomLeading: 0, bottomTrailing: 8, topTrailing: 0)
-        )
-        return HStack(spacing: 3) {
-            ForEach(Array(modifiers.enumerated()), id: \.offset) { idx, m in
-                if idx > 0 { plusSign }
-                modChip(m, dashed: false)
-            }
-            plusSign
-            modChip("N", dashed: true)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .background(shape.fill(.tertiary))
-        .overlay(shape.strokeBorder(.separator, lineWidth: 1))
-    }
-
-    private var plusSign: some View {
-        Text("+")
-            .font(DS.mono)
-            .foregroundStyle(.tertiary)
-            .padding(.horizontal, 1)
-    }
-
-    private func modChip(_ text: String, dashed: Bool) -> some View {
-        Text(text)
-            .font(DS.mono)
-            .foregroundStyle(dashed ? .secondary : .primary)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 1)
-            .background(
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(dashed ? AnyShapeStyle(.clear) : AnyShapeStyle(.quaternary))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 4)
-                    .strokeBorder(
-                        Color.secondary.opacity(dashed ? 0.5 : 0.25),
-                        style: StrokeStyle(lineWidth: 1, dash: dashed ? [2, 2] : [])
-                    )
-            )
-            .frame(minWidth: 14)
+        .overlay(alignment: .topLeading) { ChordCornerTab(modifiers: modifiers) }
     }
 
     @ViewBuilder
