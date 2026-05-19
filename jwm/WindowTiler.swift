@@ -62,7 +62,7 @@ enum WindowTiler {
     /// Automatically displaces a full-screen app to the opposite half when needed.
     ///
     /// Geometry only — slot tracking is updated by `syncSlots` at
-    /// action boundaries (HotkeyManager `onBeforeAction` and `guardActivation`'s
+    /// action boundaries (HotkeyManager `onBeforeAction` and `onFocusChanged`'s
     /// defocus path), not from inside `tile`.
     static func tile(_ position: TilePosition, app: NSRunningApplication? = nil, targetScreen: NSScreen? = nil) {
         guard let targetApp = app ?? NSWorkspace.shared.frontmostApplication else {
@@ -218,8 +218,8 @@ enum WindowTiler {
     /// app's window settles. For already-running apps this fires on the first
     /// iteration; for freshly launched apps (e.g. via Spotlight) it retries
     /// until the window appears.
-    static func guardActivation(app: NSRunningApplication) {
-        logger.info("guardActivation(\(app.localizedName ?? "unknown"), pid=\(app.processIdentifier)) prev=\(lastActiveApp.map { "\($0.localizedName ?? "unknown")/pid=\($0.processIdentifier)" } ?? "nil") slots=\(slots.dump())")
+    static func onFocusChanged(app: NSRunningApplication) {
+        logger.info("onFocusChanged(\(app.localizedName ?? "unknown"), pid=\(app.processIdentifier)) prev=\(lastActiveApp.map { "\($0.localizedName ?? "unknown")/pid=\($0.processIdentifier)" } ?? "nil") slots=\(slots.dump())")
         // Before processing the new app, snapshot the one that just lost focus.
         // Catches apps that resized to fullscreen while already active (no
         // activation event would have fired for them); also removes the entry
@@ -255,7 +255,7 @@ enum WindowTiler {
     /// - Each fullscreen-sized window is upserted (fresh seq → most-recent).
     /// - Each non-fullscreen window has its prior entry removed.
     /// Returns true iff the **focused** window is fullscreen-sized — that's
-    /// what `guardActivation`'s early-return logic cares about. Background
+    /// what `onFocusChanged`'s early-return logic cares about. Background
     /// windows still get captured as a side effect so multi-window apps
     /// remain visible to `findDisplacementCandidate`.
     ///

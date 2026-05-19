@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # A window placed near (but not exactly at) a half slot should snap to exact-half
 # on activation. Exercises WindowTiler.matchHalfPosition end-to-end:
-# guardActivation → snapFocusedToExactHalf → matchHalfPosition → snap.
+# onFocusChanged → snapFocusedToExactHalf → matchHalfPosition → snap.
 set -euo pipefail
 source "$ROOT/integration-tests/test-lib.sh"
 
@@ -23,7 +23,7 @@ near_w=$((lw * 108 / 100))
 near_h=$((lh * 92 / 100))
 victim_set_rect "$stub1_pid" "$near_x" "$near_y" "$near_w" "$near_h"
 
-# Fire activation → jwm's guardActivation polls snapFocusedToExactHalf, which
+# Fire activation → jwm's onFocusChanged polls snapFocusedToExactHalf, which
 # calls matchHalfPosition, which returns .left, which triggers the snap.
 victim_activate com.giovanniberi93.jwm.stub1
 

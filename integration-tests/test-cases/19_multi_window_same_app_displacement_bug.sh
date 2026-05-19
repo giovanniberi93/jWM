@@ -52,7 +52,7 @@ victim_add_window com.giovanniberi93.jwm.stub1
 sleep 0.6
 
 # 3. Tile current (= w2) to the right half. No NSWorkspace activation fires
-# (same app), so guardActivation isn't involved — this exercises tile()'s
+# (same app), so onFocusChanged isn't involved — this exercises tile()'s
 # inline displacement path.
 post_tile_current l
 

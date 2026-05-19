@@ -143,7 +143,7 @@ victim_activate() {
     local bundle="$1"
     osascript -e "tell application id \"$bundle\" to activate" >/dev/null
     # NSWorkspace activation notification is async; let jwm process it before
-    # the next chord. guardActivation polls at 0.05s, so 0.15s is a safe gap.
+    # the next chord. onFocusChanged polls at 0.05s, so 0.15s is a safe gap.
     sleep 0.2
 }
 
@@ -297,7 +297,7 @@ EOF
 # --- Assertions ---------------------------------------------------------------
 
 # Assert a window's rect approximately matches expected, polling for up to
-# guardActivation's 0.5s displacement window plus headroom for AX latency.
+# onFocusChanged's 0.5s displacement window plus headroom for AX latency.
 assert_rect_approx() {
     local pid="$1" ex="$2" ey="$3" ew="$4" eh="$5"
     local deadline=$(($(date +%s) + 1))
@@ -325,11 +325,11 @@ assert_rect_approx() {
 }
 
 # Same as assert_rect_approx but the failure is the success: assert the rect
-# does NOT change within guardActivation's 0.5s displacement window. Used by
+# does NOT change within onFocusChanged's 0.5s displacement window. Used by
 # test 05 (half-replaces-half = no displacement) and test 07 (focus-only no-op).
 assert_rect_stable() {
     local pid="$1" ex="$2" ey="$3" ew="$4" eh="$5"
-    local iterations=3  # ~3 × (osascript ~0.1s + 0.12s sleep) = ~0.65s, past guardActivation's 0.5s window
+    local iterations=3  # ~3 × (osascript ~0.1s + 0.12s sleep) = ~0.65s, past onFocusChanged's 0.5s window
     local i
     for (( i = 0; i < iterations; i++ )); do
         local last

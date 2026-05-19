@@ -4,8 +4,8 @@
 # WindowTiler.suppressDisplaceForBundleID.
 #
 # Bug shape: when the chord launches a cold app, macOS fires
-# NSWorkspace.didActivateApplicationNotification → WindowTiler.guardActivation
-# while the new window is still at its restored position. guardActivation's
+# NSWorkspace.didActivateApplicationNotification → WindowTiler.onFocusChanged
+# while the new window is still at its restored position. onFocusChanged's
 # poll calls snapFocusedToExactHalf + displaceFullScreenSibling, which read
 # the *restored* geometry and displace the fullscreen sibling to the wrong
 # half. The chord's own tile() then can't recover because the sibling is no

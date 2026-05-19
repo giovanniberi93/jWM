@@ -193,6 +193,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func startHotkeys() {
         snapManager.start()
+        FocusWatcher.shared.start()
 
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
@@ -201,7 +202,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ) { notification in
             guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
             logger.info("App activated: \(app.localizedName ?? app.bundleIdentifier ?? "unknown")")
-            WindowTiler.guardActivation(app: app)
+            WindowTiler.onFocusChanged(app: app)
         }
 
         hotkeyManager.start(
@@ -216,7 +217,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 AppFocuser.focusOrLaunch(bundleID: bundleID)
                 OnboardingCoordinator.shared.observeAction(.focus(slotKey: appKey))
                 // No explicit snapshot of the new app: NSWorkspace activation
-                // notification will fire and guardActivation handles it.
+                // notification will fire and onFocusChanged handles it.
             },
             onTile: { position in
                 UsageStats.record(.tile)
@@ -236,7 +237,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     app.activate()
                 } else {
                     logger.info("App \(bundleID) not running or has no windows, launching + tiling...")
-                    // Block guardActivation's snapFocusedToExactHalf from
+                    // Block onFocusChanged's snapFocusedToExactHalf from
                     // acting on the launching app's restored geometry — our
                     // tile() below owns positioning for this chord. The flag
                     // is cleared in the completion (deterministic: main queue

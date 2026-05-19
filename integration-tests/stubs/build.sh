@@ -5,7 +5,7 @@
 #   com.giovanniberi93.jwm.stub{1,2,3} — well-behaved victims
 #   com.giovanniberi93.jwm.problematic — opt-in misbehaviors via CLI flags
 #     (--drift-back-times, --spawn-delay-ms, --windows 0); used to
-#     exercise jwm's defensive logic (guardPosition, guardActivation,
+#     exercise jwm's defensive logic (guardPosition, onFocusChanged,
 #     focusOrLaunch's no-window branch). Pass flags with
 #     `open -b <bundle> -n --args ...`.
 # Registered with Launch Services so `open -b` resolves them.

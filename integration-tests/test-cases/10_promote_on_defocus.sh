@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # A window resized to near-fullscreen WITHOUT being tiled via jwm should still
-# get tracked in the fullscreen slot — but only if guardActivation's
+# get tracked in the fullscreen slot — but only if onFocusChanged's
 # defocus-time promoteIfFullScreen runs (WindowTiler.swift:154-158).
 #
 # Without that defocus path, the next half-tile would have nothing to displace
@@ -14,7 +14,7 @@ stub1_pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)
 stub2_pid=$(victim_get_pid com.giovanniberi93.jwm.stub2)
 
 victim_activate com.giovanniberi93.jwm.stub1
-# Wait for stub1's post-activation poll to expire (guardActivation runs
+# Wait for stub1's post-activation poll to expire (onFocusChanged runs
 # syncSlots + snapFocusedToExactHalf for 0.5s). After this, the ONLY path
 # that can promote stub1 is the defocus check on the next activation —
 # which is exactly what this test exercises.
@@ -27,7 +27,7 @@ near_full_w=$((fw - 15))
 near_full_h=$((fh - 12))
 victim_set_rect "$stub1_pid" "$fx" "$fy" "$near_full_w" "$near_full_h"
 
-# Activate stub2. jwm's guardActivation(stub2) runs promoteIfFullScreen
+# Activate stub2. jwm's onFocusChanged(stub2) runs promoteIfFullScreen
 # on prev=stub1 (the defocus path). stub1 is near-full → added to
 # slots.fullScreen.
 victim_activate com.giovanniberi93.jwm.stub2

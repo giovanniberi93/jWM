@@ -77,7 +77,7 @@ final class StubAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if config.spawnDelayMs > 0 {
-            // Fire activation while still windowless so jwm's guardActivation
+            // Fire activation while still windowless so jwm's onFocusChanged
             // and launchAndWaitForWindow hit their poll-until-window-appears
             // paths.
             NSApp.activate(ignoringOtherApps: true)
@@ -136,11 +136,13 @@ final class StubAppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // Integration-test hook: if `/tmp/jwm-stub-initial-frame.txt` exists, the
-    // FIRST window of this process opens at the rect it specifies (CG coords,
-    // space-separated "x y w h"). One-shot — the file is deleted on read.
-    // Used by tests that need to launch a stub at a specific half-tile rect
-    // so jwm's activation-time path sees a stale half-tiled layout.
+    // Integration-test hook: if `/tmp/jwm-stub-initial-frame.txt` exists at
+    // spawn time, the next spawned window of this process opens at the rect
+    // it specifies (CG coords, space-separated "x y w h"). One-shot — the
+    // file is deleted on read, so subsequent spawns are unaffected. Used by
+    // tests that need a window at a specific rect at the moment it becomes
+    // key-and-front (e.g. test 18 for first-spawn restored geometry; test 21
+    // for a same-app sibling spawned via SIGUSR1).
     private static func consumeInitialFrameOverride() -> NSRect? {
         let path = "/tmp/jwm-stub-initial-frame.txt"
         guard let text = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
@@ -165,7 +167,7 @@ final class StubAppDelegate: NSObject, NSApplicationDelegate {
         )
         w.title = "\(bundleName) #\(idx + 1)"
         w.isReleasedWhenClosed = false
-        if idx == 0, let override = Self.consumeInitialFrameOverride() {
+        if let override = Self.consumeInitialFrameOverride() {
             w.setFrame(override, display: false, animate: false)
         }
         w.makeKeyAndOrderFront(nil)
