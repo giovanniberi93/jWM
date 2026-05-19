@@ -7,8 +7,6 @@ cd "$REPO_ROOT"
 APP_PATH="build/Build/Products/Release/jwm.app"
 BUNDLE_ID="com.giovanniberi93.jwm"
 
-make release
-
 RAW="$(git describe --tags --dirty --match 'v*')"
 case "$RAW" in
     *-dirty)
@@ -17,6 +15,9 @@ case "$RAW" in
         ;;
 esac
 VERSION="${RAW#v}"
+
+rm -rf "$APP_PATH"
+make release
 
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP_PATH/Contents/Info.plist"
 

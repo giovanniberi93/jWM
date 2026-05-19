@@ -34,7 +34,7 @@ fi
 
 git push origin "$TAG"
 
-./scripts/package_release.sh
+./scripts/prepare_release_package.sh
 
 VERSION="${TAG#v}"
 ZIP="build/jWM-${VERSION}.zip"
