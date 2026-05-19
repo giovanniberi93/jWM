@@ -13,10 +13,13 @@ struct AppPickerStep: View {
     private var eyebrow: String { "Step 2 of 4 · App binding" }
     private var heading: String { "Pick your most-used app." }
     private var lede: String {
-        "It'll go in slot 1. From anywhere on your Mac, ⌘1 will jump to it. You can bind more apps to ⌘2–⌘0 later in Settings."
+        "It'll go in slot 1. From anywhere on your Mac, ⌘1 will jump to it.\nYou can bind more apps to ⌘2–⌘0 later in Settings."
     }
 
-    private var currentBundleID: String { model.slot1BundleID }
+    // Observe slot 1's binding via AppStorage so the view re-renders when the
+    // user clears it through SlotKeycap's × badge (which writes UserDefaults
+    // directly and doesn't go through TutorialModel.bind).
+    @AppStorage("app1_bundleID") private var currentBundleID: String = ""
 
     private var dimmed: Set<String> { [] }
 

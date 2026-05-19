@@ -16,7 +16,7 @@ struct KeyModeStep: View {
         VStack(alignment: .leading, spacing: 0) {
             StepHeader(eyebrow: "Step 1 of 4 · Keys for tiling",
                        heading: "Vim or arrows?",
-                       lede: "jWM uses four directional keys for tiling: left, right, fill screen, and next screen. Pick the layout you'd rather press.")
+                       lede: "jWM uses four directional keys for tiling: left, right, fill screen, and next screen.\nPick the layout you prefer.")
 
             HStack(spacing: 12) {
                 modeCard(

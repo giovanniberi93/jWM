@@ -92,8 +92,6 @@ enum TutorialAdvancer {
             advance(model: model, banner: "Focused \(model.slot1Name).", to: .tryChord)
         case (.tryChord, .focusTile(let key, .right)) where key == "app1":
             advance(model: model, banner: "Focused and tiled. That's the move.", to: .done)
-        case (.tryChord, .focusTile(let key, .left)) where key == "app1":
-            advance(model: model, banner: "Focused and tiled. That's the move.", to: .done)
         default:
             break
         }

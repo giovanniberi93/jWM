@@ -19,7 +19,8 @@ struct DoneStep: View {
                     .font(.system(size: 14))
                     .foregroundStyle(TutorialTokens.ink2)
                     .multilineTextAlignment(.center)
-                    .frame(maxWidth: 460)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: 550)
             }
             .padding(.top, 12)
             .frame(maxWidth: .infinity)
@@ -45,6 +46,6 @@ struct DoneStep: View {
     }
 
     private var ledeText: AttributedString {
-        AttributedString("Bind more apps to ⌘2–⌘0 in Settings — the same chord pattern works for every slot. You can replay this tutorial any time from Settings → Keyboard shortcuts.")
+        AttributedString("Bind more apps to ⌘2–⌘0 in Settings.\nYou can replay this tutorial any time from Settings → Keyboard shortcuts.")
     }
 }
