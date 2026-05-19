@@ -12,6 +12,11 @@ build:
 	xcodebuild -project $(PROJECT) -scheme jwm -configuration Debug \
 		-derivedDataPath $(BUILD_DIR) build
 
+.PHONY: release
+release:
+	xcodebuild -project $(PROJECT) -scheme jwm -configuration Release \
+		-derivedDataPath $(BUILD_DIR) build
+
 .PHONY: build-test
 build-test:
 	xcodebuild -project $(PROJECT) -scheme jwm -configuration Debug \

@@ -113,4 +113,8 @@ final class TTLCache<Value> {
         expiresAt = now + ttl
         return fresh
     }
+
+    // Workaround for Swift 6.2.4 optimizer crash in EarlyPerfInliner when
+    // synthesizing deinit for TTLCache<Value> at deployment target < 26.0.
+    deinit {}
 }

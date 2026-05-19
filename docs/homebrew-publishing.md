@@ -64,7 +64,7 @@ If any of these choices look stale when you re-read this doc, STOP and re-confir
       strategy :github_latest
     end
 
-    depends_on macos: ">= :ventura" # confirm minimum from Xcode project before committing
+    depends_on macos: ">= :sonoma"
 
     app "jwm.app", target: "jWM.app"
 
@@ -87,8 +87,8 @@ If any of these choices look stale when you re-read this doc, STOP and re-confir
     EOS
   end
   ```
-- [ ] Confirm the minimum macOS version by checking `MACOSX_DEPLOYMENT_TARGET` in `jwm.xcodeproj/project.pbxproj` and updating the `depends_on` line accordingly.
-- [ ] Confirm the bundle name on disk is `jwm.app` (lowercase) — the Makefile copies it to `/Applications/jWM.app` but the build output is `jwm.app`. If the zip contains `jwm.app`, the `app "jwm.app", target: "jWM.app"` line is correct. Otherwise adjust.
+- [ ] Confirm `MACOSX_DEPLOYMENT_TARGET = 14.0` is still set in `jwm.xcodeproj/project.pbxproj`. If it changes, update `depends_on macos:` to match (`:sonoma` = 14, `:sequoia` = 15, `:tahoe` = 26).
+- [ ] Confirm the bundle name on disk is `jwm.app` (lowercase). The Release build emits `build/Build/Products/Release/jwm.app`, and `package_release.sh` zips that path, so the zip contains `jwm.app`. The cask's `app "jwm.app", target: "jWM.app"` line renames it to `jWM.app` at install time.
 - [ ] Run `brew install --cask --debug --verbose ./Casks/jwm.rb` locally from the tap repo to test end-to-end. Then `brew uninstall --cask --zap jwm` to verify zap removes preferences cleanly.
 - [ ] Run `brew style ./Casks/jwm.rb` and fix anything it flags. Skip `brew audit --new-cask` — it's strict and only matters for `homebrew/cask` submissions.
 - [ ] Commit and push the cask to the tap.

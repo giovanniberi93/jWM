@@ -32,21 +32,25 @@ I've been a happy [Rectangle](https://rectangleapp.com/) user for a few years, b
 
 That worked, but I came to dislike having to always perform two separate operations to move a single window. `jWM` solves this issue by combining app focusing and window tiling in a single key-chord.
 
-## Requirements
-
-[Xcode](https://xcodereleases.com/) to build the application.
-
-The application was developed using [Xcode 26.3](https://developer.apple.com/services-account/download?path=/Developer_Tools/Xcode_26.3/Xcode_26.3_Universal.xip) on macOS Tahoe 26.3.1
-
-> ***Wait, no pre-built binaries?***
->
-> No, there's currently only 1 jWM user so it doesn't feel necessary for now.
-
 ## Installation
 
-Run `make install` in the repo root to build and install the app in `~/Applications/`.
+Install via [Homebrew](https://brew.sh):
 
-Run `make dev` in the repo root to build and run the application without installing it.
+```bash
+brew install --cask giovanniberi93/jwm/jwm
+```
+
+(That's a shortcut for `brew tap giovanniberi93/jwm && brew install --cask jwm`.)
+
+> ***Why does macOS block jWM on first launch?***
+>
+> jWM is distributed unsigned (no $99/yr Apple Developer Program). The first launch hits Gatekeeper. Either right-click `jWM` in `/Applications` and choose **Open**, or remove the quarantine attribute:
+>
+> ```bash
+> xattr -dr com.apple.quarantine /Applications/jWM.app
+> ```
+
+After launch, grant Accessibility permission when prompted: **System Settings → Privacy & Security → Accessibility**.
 
 ## Usage
 
@@ -110,6 +114,13 @@ jWM needs Accessibility access to manage windows. macOS will prompt on first lau
 ```bash
 make reset-accessibility-permissions
 ```
+
+## Development
+
+Building from source requires [Xcode](https://xcodereleases.com/) (developed against Xcode 26.3 on macOS Tahoe 26.3.1).
+
+- `make dev` — build and run without installing.
+- `make install` — build and install into `/Applications/jWM.app`.
 
 ## Contributors
 
