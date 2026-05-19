@@ -1,11 +1,11 @@
-<p align="center">
-  <img src="jwm/Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png" width="128" alt="jWM icon">
-  <h2 align="center">jWM — janzo's Window Manager</h2>
-</p>
+ # jWM — janzo's Window Manager
 
-<p align="center">A simple tiling window manager for MacOS.</p>
+ <img src="./assets/settings.png" alt="jWM settings screenshot">
+<p align="center">A simple tiling window manager for MacOS.\nasd</p>
 <p align="center">It combines app focusing and window tiling into a single key-chord interaction.</p>
 <p align="center">(Vim-like keybindings supported!)</p>
+
+ ## Demo
 
 <table>
   <tr>
