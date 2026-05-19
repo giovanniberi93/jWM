@@ -34,14 +34,18 @@ if [ "$sc" -lt 2 ]; then
     echo "Multi-screen tests under test-cases/multi-screen/ will report SKIP."
 fi
 
+COUNTDOWN_SRC="$ROOT/integration-tests/countdown-overlay.swift"
+COUNTDOWN_BIN="$ROOT/build/test/countdown-overlay"
+if [ ! -x "$COUNTDOWN_BIN" ] || [ "$COUNTDOWN_SRC" -nt "$COUNTDOWN_BIN" ]; then
+    mkdir -p "$(dirname "$COUNTDOWN_BIN")"
+    swiftc -O "$COUNTDOWN_SRC" -o "$COUNTDOWN_BIN"
+fi
+
 notify() {
     osascript -e "display notification \"$1\" with title \"jWM integration tests\"" >/dev/null 2>&1 || true
 }
 
-for i in 3 2 1; do
-    notify "Starting in ${i}..."
-    sleep 1
-done
+"$COUNTDOWN_BIN" 3
 
 STUB1_BUNDLE="com.giovanniberi93.jwm.stub1"
 STUB2_BUNDLE="com.giovanniberi93.jwm.stub2"
