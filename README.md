@@ -100,7 +100,7 @@ Press `⌃`+`⌘`+`a` to launch (or focus) every app bound to any slot, each til
 
 ### Mouse support
 
-Drag any window to the left or right screen edge to tile it. A preview overlay shows the target position.
+Drag any window to the left/right/top screen edge to tile it. A preview overlay shows the target position.
 
 ## Troubleshooting
 
