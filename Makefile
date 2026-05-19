@@ -34,6 +34,10 @@ install: build reset-accessibility-permissions
 	rm -rf /Applications/$(APP_NAME).app
 	ditto $(BUILD_DIR)/Build/Products/Debug/jwm.app /Applications/$(APP_NAME).app
 
+.PHONY: installed-app-logs
+installed-app-logs:
+	log stream --style compact --level debug --predicate 'subsystem == "$(INSTALLED_BUNDLE_ID)"'
+
 .PHONY: kill
 kill:
 	pkill -x jwm || true

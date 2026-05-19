@@ -14,12 +14,12 @@ struct DualLogger {
     private var timestamp: String { formatter.string(from: Date()) }
 
     func info(_ message: String) {
-        osLog.info("\(message)")
+        osLog.info("\(message, privacy: .public)")
         print("[\(timestamp)] jwm: \(message)")
     }
 
     func error(_ message: String) {
-        osLog.error("\(message)")
+        osLog.error("\(message, privacy: .public)")
         print("[\(timestamp)] jwm: ERROR: \(message)")
     }
 }
