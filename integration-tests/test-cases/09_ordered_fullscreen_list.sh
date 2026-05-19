@@ -18,7 +18,7 @@ read -r fx fy fw fh <<<"$(expected_rect full)"
 read -r lx ly lw lh <<<"$(expected_rect left)"
 read -r rx ry rw rh <<<"$(expected_rect right)"
 
-# Mirrors test 11's natively-zoomed setup. Three sequential activations let
+# Mirrors test 08's natively-zoomed setup. Three sequential activations let
 # defocus-promote on each transition add the prior frontmost to the slot.
 victim_activate com.giovanniberi93.jwm.stub1
 victim_set_rect "$stub1_pid" "$fx" "$fy" "$fw" "$fh"

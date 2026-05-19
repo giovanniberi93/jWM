@@ -326,7 +326,7 @@ assert_rect_approx() {
 
 # Same as assert_rect_approx but the failure is the success: assert the rect
 # does NOT change within onFocusChanged's 0.5s displacement window. Used by
-# test 05 (half-replaces-half = no displacement) and test 07 (focus-only no-op).
+# test 03 (half-replaces-half = no displacement) and test 04 (focus-only no-op).
 assert_rect_stable() {
     local pid="$1" ex="$2" ey="$3" ew="$4" eh="$5"
     local iterations=3  # ~3 × (osascript ~0.1s + 0.12s sleep) = ~0.65s, past onFocusChanged's 0.5s window

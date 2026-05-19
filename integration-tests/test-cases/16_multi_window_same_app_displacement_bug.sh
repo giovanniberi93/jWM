@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Regression test for multi-window displacement: a full-screen window must be
 # displaced to the opposite half when *another window of the same app* is
-# tiled to a half. Same rule as test 04, but with both windows sharing a pid.
+# tiled to a half. Same rule as test 02, but with both windows sharing a pid.
 #
 # Setup
 #   1. stub1 launches with one window (w1) and is tiled to full-screen.

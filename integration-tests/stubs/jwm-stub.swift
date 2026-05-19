@@ -141,7 +141,7 @@ final class StubAppDelegate: NSObject, NSApplicationDelegate {
     // it specifies (CG coords, space-separated "x y w h"). One-shot — the
     // file is deleted on read, so subsequent spawns are unaffected. Used by
     // tests that need a window at a specific rect at the moment it becomes
-    // key-and-front (e.g. test 18 for first-spawn restored geometry; test 21
+    // key-and-front (e.g. test 15 for first-spawn restored geometry; test 18
     // for a same-app sibling spawned via SIGUSR1).
     private static func consumeInitialFrameOverride() -> NSRect? {
         let path = "/tmp/jwm-stub-initial-frame.txt"

@@ -120,7 +120,7 @@ final class SlotStateTests: XCTestCase {
         XCTAssertEqual(slots.mostRecentFullScreen(forDisplay: 2, excluding: 0)?.windowId, 200)
     }
 
-    // MARK: - test 12 scenario (ordered list survives displacement)
+    // MARK: - test 09 scenario (ordered list survives displacement)
 
     func testOrderedListSurvivesDisplacement() {
         // Three apps go fullscreen in order, then the newest is displaced

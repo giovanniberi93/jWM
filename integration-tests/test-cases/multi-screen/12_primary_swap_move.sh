@@ -65,7 +65,7 @@ SCREEN_B_SWAP=$(sed "s|origin:($ORIGIN_B)|origin:(__P__)|; s|origin:(__P__)|orig
 # --- Per-config bounce check --------------------------------------------------
 # 3 presses of ctrl+cmd+k from a fullscreen window. Each press must move it
 # to the other screen and have it land fullscreen there. Mirrors the inner
-# loop of test 13.
+# loop of test 10.
 run_three_moves() {
     local label="$1"
     local pid="$2"

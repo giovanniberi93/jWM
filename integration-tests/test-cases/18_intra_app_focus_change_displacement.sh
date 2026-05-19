@@ -7,8 +7,8 @@
 # opposite half.
 #
 # This exercises the AX-observer path (FocusWatcher) — not the chord path of
-# test 19 and not the NSWorkspace-activation path of test 04. Setup is
-# identical to test 19 but the trigger is the AX focused-window-changed
+# test 16 and not the NSWorkspace-activation path of test 02. Setup is
+# identical to test 16 but the trigger is the AX focused-window-changed
 # notification fired by NSWindow.makeKeyAndOrderFront, with w2 pre-seeded at
 # the left half so snapFocusedToExactHalf matches without any user input.
 
@@ -44,7 +44,7 @@ sleep 0.6
 
 # 3. w1 (still AppleScript-window-2 behind w2) must have been displaced to
 # the right half by the FocusWatcher → onFocusChanged path. Same polling
-# shape as test 19's displaced-window check.
+# shape as test 16's displaced-window check.
 deadline=$(($(date +%s) + 1))
 last=""
 while (( $(date +%s) <= deadline )); do
