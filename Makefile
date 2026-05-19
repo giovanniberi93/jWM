@@ -34,6 +34,11 @@ dev: build
 reset-tutorial:
 	defaults delete $(INSTALLED_BUNDLE_ID) hasCompletedFirstRunTutorial 2>/dev/null || true
 
+.PHONY: reset-prefs
+reset-prefs: kill
+	defaults delete $(INSTALLED_BUNDLE_ID) 2>/dev/null || true
+	rm -f ~/Library/Preferences/$(INSTALLED_BUNDLE_ID).plist
+
 .PHONY: install
 install: build reset-accessibility-permissions
 	rm -rf /Applications/$(APP_NAME).app

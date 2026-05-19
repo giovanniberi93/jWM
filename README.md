@@ -1,9 +1,9 @@
  # jWM — janzo's Window Manager
 
  <img src="./assets/settings.png" alt="jWM settings screenshot">
-<p align="center">A simple tiling window manager for MacOS.\nasd</p>
+<p align="center">A simple tiling window manager for MacOS.</p>
 <p align="center">It combines app focusing and window tiling into a single key-chord interaction.</p>
-<p align="center">(Vim-like keybindings supported!)</p>
+<p align="center"><em>(Vim-like keybindings supported!)</em></p>
 
  ## Demo
 
@@ -40,11 +40,12 @@ Install via [Homebrew](https://brew.sh):
 brew install --cask giovanniberi93/jwm/jwm
 ```
 
-(That's a shortcut for `brew tap giovanniberi93/jwm && brew install --cask jwm`.)
-
 > ***Why does macOS block jWM on first launch?***
 >
-> jWM is distributed unsigned (no $99/yr Apple Developer Program). The first launch hits Gatekeeper. Either right-click `jWM` in `/Applications` and choose **Open**, or remove the quarantine attribute:
+> jWM is distributed unsigned (no $99/yr Apple Developer Program). The first launch hits Gatekeeper and the app refuses to open. Two ways past it:
+>
+> - **System Settings → Privacy & Security**, scroll to the "*jWM* was blocked..." notice and click **Open Anyway**, then confirm; or
+> - remove the quarantine attribute from the bundle via command line:
 >
 > ```bash
 > xattr -dr com.apple.quarantine /Applications/jWM.app
