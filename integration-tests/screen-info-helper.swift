@@ -45,8 +45,11 @@ case "expected-rect":
         FileHandle.standardError.write(Data("expected-rect needs left|right|full\n".utf8))
         exit(2)
     }
-    let screen = NSScreen.main ?? NSScreen.screens[0]
-    let r = cgRect(pos, screen: screen)
+    // Pin to screens[0] (primary). NSScreen.main tracks the window with key
+    // focus and drifts to whichever display was last active, which makes
+    // single-screen test expectations flap on multi-screen hosts. Tests that
+    // genuinely need a non-primary screen use `expected-rect-on <idx>`.
+    let r = cgRect(pos, screen: NSScreen.screens[0])
     print("\(Int(r.origin.x)) \(Int(r.origin.y)) \(Int(r.width)) \(Int(r.height))")
 case "expected-rect-on":
     // Same as expected-rect but pinned to a specific NSScreen index.
