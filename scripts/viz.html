@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>jwm usage stats</title>
+<title>janzowm usage stats</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="usage-stats.js"></script>
 <style>
@@ -16,13 +16,13 @@
 </style>
 </head>
 <body>
-<h1>jwm usage — last 7 days</h1>
+<h1>janzowm usage — last 7 days</h1>
 <div class="meta" id="meta"></div>
 <div id="charts"></div>
 
 <script>
 (function () {
-  const data = (window.JWM_DATA && window.JWM_DATA.hourly) || {};
+  const data = (window.JANZOWM_DATA && window.JANZOWM_DATA.hourly) || {};
   const kinds = ["focus", "tile", "focusTile", "mouseSnap"];
   const colors = { focus: "#4e79a7", tile: "#f28e2b", focusTile: "#59a14f", mouseSnap: "#e15759" };
 

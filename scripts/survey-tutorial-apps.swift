@@ -2,7 +2,7 @@
 //
 // survey-tutorial-apps.swift — for each .app bundle in /Applications, launch
 // the app, then ask its front window via Accessibility (the same path
-// jwm/WindowAX.swift uses) to occupy the left half / right half / full
+// janzowm/WindowAX.swift uses) to occupy the left half / right half / full
 // visibleFrame of the primary screen. Apps whose resulting rect doesn't match
 // the requested rect within tolerance are logged to excluded-apps.txt; apps
 // that fail to launch or never expose a window go to unverifiable-apps.txt.
@@ -62,7 +62,7 @@ let DENYLISTED_BUNDLES: Set<String> = [
     "com.apple.RemoteDesktop",
 ]
 
-// MARK: - Geometry (mirrors jwm/Coords.rect(for:on:))
+// MARK: - Geometry (mirrors janzowm/Coords.rect(for:on:))
 
 enum Position: String, CaseIterable { case left, right, full }
 
@@ -81,7 +81,7 @@ func expectedCGRect(_ pos: Position, screen: NSScreen) -> CGRect {
     return CGRect(x: ak.origin.x, y: primaryH - ak.origin.y - ak.height, width: ak.width, height: ak.height)
 }
 
-// MARK: - AX I/O (mirrors jwm/WindowAX)
+// MARK: - AX I/O (mirrors janzowm/WindowAX)
 
 enum AX {
     static func appElement(pid: pid_t) -> AXUIElement {
@@ -103,7 +103,7 @@ enum AX {
         return nil
     }
 
-    /// The window we want to *tile*. jwm uses focusedWindow because it's
+    /// The window we want to *tile*. janzowm uses focusedWindow because it's
     /// driven by the user's intent, but a survey running unattended can't
     /// trust focus — apps like Chess put a "New Game" dialog on top at
     /// launch, and the dialog becomes the focused window. Tile that and it
@@ -182,7 +182,7 @@ enum AX {
         return CGRect(origin: pos, size: size)
     }
 
-    /// 3-op size→position→size, same as jwm's applySizePositionSize. Setting
+    /// 3-op size→position→size, same as janzowm's applySizePositionSize. Setting
     /// size first avoids macOS clamping position to keep the old frame on
     /// screen; the trailing size write corrects any clamp.
     static func setRect(_ window: AXUIElement, _ rect: CGRect) {

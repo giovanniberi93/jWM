@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
-# Scenario 1: app sitting at fullscreen rect (not put there by jwm) should get
+# Scenario 1: app sitting at fullscreen rect (not put there by janzowm) should get
 # displaced when user chord-tiles another app via cmd+N+H. Exercises the
-# tile-then-activate order in onFocusTile (jwmApp.swift:150-160) — defocus-
+# tile-then-activate order in onFocusTile (janzowmApp.swift:150-160) — defocus-
 # promote on the previously-active app must fire in time for tile()'s
 # findDisplacementCandidate to find it.
 set -euo pipefail
 source "$ROOT/integration-tests/test-lib.sh"
 
 # Preheat stub1 so cmd+1+H takes the running-with-windows path
-victim_launch com.giovanniberi93.jwm.stub1
-stub1_pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)
+victim_launch com.giovanniberi93.janzowm.stub1
+stub1_pid=$(victim_get_pid com.giovanniberi93.janzowm.stub1)
 
 # stub2 is the "natively-zoomed" app
-victim_launch com.giovanniberi93.jwm.stub2
-stub2_pid=$(victim_get_pid com.giovanniberi93.jwm.stub2)
-victim_activate com.giovanniberi93.jwm.stub2
+victim_launch com.giovanniberi93.janzowm.stub2
+stub2_pid=$(victim_get_pid com.giovanniberi93.janzowm.stub2)
+victim_activate com.giovanniberi93.janzowm.stub2
 
 # Wait for post-activation poll to expire so promote can ONLY happen via the
 # defocus path on the next activation event
 sleep 0.6
 
-# Simulate native zoom: stub2 at exact fullscreen rect, no jwm event fired
+# Simulate native zoom: stub2 at exact fullscreen rect, no janzowm event fired
 read -r fx fy fw fh <<<"$(expected_rect full)"
 victim_set_rect "$stub2_pid" "$fx" "$fy" "$fw" "$fh"
 

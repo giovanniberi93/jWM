@@ -19,15 +19,15 @@
 set -euo pipefail
 source "$ROOT/integration-tests/test-lib.sh"
 
-STUB1_BUNDLE="com.giovanniberi93.jwm.stub1"
-STUB2_BUNDLE="com.giovanniberi93.jwm.stub2"
-OVERRIDE_FILE="/tmp/jwm-stub-initial-frame.txt"
+STUB1_BUNDLE="com.giovanniberi93.janzowm.stub1"
+STUB2_BUNDLE="com.giovanniberi93.janzowm.stub2"
+OVERRIDE_FILE="/tmp/janzowm-stub-initial-frame.txt"
 
 # Clean up the override file even on early failure so it doesn't pollute
 # subsequent tests that share the global stub binary.
 trap 'rm -f "$OVERRIDE_FILE"' EXIT
 
-# stub1: cold launch + chord-tile fullscreen so jwm tracks it in slots.
+# stub1: cold launch + chord-tile fullscreen so janzowm tracks it in slots.
 victim_launch "$STUB1_BUNDLE"
 stub1_pid=$(victim_get_pid "$STUB1_BUNDLE")
 victim_activate "$STUB1_BUNDLE"

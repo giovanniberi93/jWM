@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# A window resized to near-fullscreen WITHOUT being tiled via jwm should still
+# A window resized to near-fullscreen WITHOUT being tiled via janzowm should still
 # get tracked in the fullscreen slot — but only if onFocusChanged's
 # defocus-time promoteIfFullScreen runs (WindowTiler.swift:154-158).
 #
@@ -8,12 +8,12 @@
 set -euo pipefail
 source "$ROOT/integration-tests/test-lib.sh"
 
-victim_launch com.giovanniberi93.jwm.stub1
-victim_launch com.giovanniberi93.jwm.stub2
-stub1_pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)
-stub2_pid=$(victim_get_pid com.giovanniberi93.jwm.stub2)
+victim_launch com.giovanniberi93.janzowm.stub1
+victim_launch com.giovanniberi93.janzowm.stub2
+stub1_pid=$(victim_get_pid com.giovanniberi93.janzowm.stub1)
+stub2_pid=$(victim_get_pid com.giovanniberi93.janzowm.stub2)
 
-victim_activate com.giovanniberi93.jwm.stub1
+victim_activate com.giovanniberi93.janzowm.stub1
 # Wait for stub1's post-activation poll to expire (onFocusChanged runs
 # syncSlots + snapFocusedToExactHalf for 0.5s). After this, the ONLY path
 # that can promote stub1 is the defocus check on the next activation —
@@ -27,12 +27,12 @@ near_full_w=$((fw - 15))
 near_full_h=$((fh - 12))
 victim_set_rect "$stub1_pid" "$fx" "$fy" "$near_full_w" "$near_full_h"
 
-# Activate stub2. jwm's onFocusChanged(stub2) runs promoteIfFullScreen
+# Activate stub2. janzowm's onFocusChanged(stub2) runs promoteIfFullScreen
 # on prev=stub1 (the defocus path). stub1 is near-full → added to
 # slots.fullScreen.
-victim_activate com.giovanniberi93.jwm.stub2
+victim_activate com.giovanniberi93.janzowm.stub2
 
-# Tile stub2 to the left half. If the defocus-promote actually ran, jwm
+# Tile stub2 to the left half. If the defocus-promote actually ran, janzowm
 # finds stub1 in the fullscreen slot via findDisplacementCandidate and
 # shrinks it to the right half. If it didn't run, stub1 stays at near-full.
 victim_set_rect "$stub2_pid" 400 400 500 350

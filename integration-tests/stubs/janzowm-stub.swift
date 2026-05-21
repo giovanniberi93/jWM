@@ -28,7 +28,7 @@ private func framesNearlyEqual(_ a: NSRect, _ b: NSRect, tolerance: CGFloat = 1)
 }
 
 // Mimics Electron-style async drift: after every external frame change, wait
-// briefly (so jwm's 3-op size→pos→size sequence settles) then snap back to
+// briefly (so janzowm's 3-op size→pos→size sequence settles) then snap back to
 // the window's preferred frame, up to `remainingReverts` times. Exists so
 // integration tests can exercise WindowAX.guardPosition without depending on
 // a real Electron build.
@@ -77,7 +77,7 @@ final class StubAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if config.spawnDelayMs > 0 {
-            // Fire activation while still windowless so jwm's onFocusChanged
+            // Fire activation while still windowless so janzowm's onFocusChanged
             // and launchAndWaitForWindow hit their poll-until-window-appears
             // paths.
             NSApp.activate(ignoringOtherApps: true)
@@ -136,7 +136,7 @@ final class StubAppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // Integration-test hook: if `/tmp/jwm-stub-initial-frame.txt` exists at
+    // Integration-test hook: if `/tmp/janzowm-stub-initial-frame.txt` exists at
     // spawn time, the next spawned window of this process opens at the rect
     // it specifies (CG coords, space-separated "x y w h"). One-shot — the
     // file is deleted on read, so subsequent spawns are unaffected. Used by
@@ -144,7 +144,7 @@ final class StubAppDelegate: NSObject, NSApplicationDelegate {
     // key-and-front (e.g. test 15 for first-spawn restored geometry; test 18
     // for a same-app sibling spawned via SIGUSR1).
     private static func consumeInitialFrameOverride() -> NSRect? {
-        let path = "/tmp/jwm-stub-initial-frame.txt"
+        let path = "/tmp/janzowm-stub-initial-frame.txt"
         guard let text = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
         try? FileManager.default.removeItem(atPath: path)
         let parts = text.split(whereSeparator: { $0.isWhitespace || $0 == "," }).compactMap { Double($0) }

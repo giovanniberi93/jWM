@@ -8,7 +8,7 @@ import AppKit
 //   - Level 21 is below `notificationCenterLevel` (23), so it PASSES
 //     `QuartzWindowList.windowAtPoint`'s filter.
 //   - processName isn't "Dock"/"WindowManager", so it also passes that filter.
-//   - Bundle id `com.giovanniberi93.jwm.overlay` is in SnapManager's
+//   - Bundle id `com.giovanniberi93.janzowm.overlay` is in SnapManager's
 //     `ignoredBundleIDs`, so `getWindowInfoUnderCursor` rejects this hit.
 //   - That short-circuits `.first(where:)` before reaching the real victim
 //     stub underneath — exactly the failure mode triggered in the wild by

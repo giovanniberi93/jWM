@@ -12,9 +12,9 @@
 set -euo pipefail
 source "$ROOT/integration-tests/test-lib.sh"
 
-victim_launch com.giovanniberi93.jwm.stub1
-victim_activate com.giovanniberi93.jwm.stub1
-pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)
+victim_launch com.giovanniberi93.janzowm.stub1
+victim_activate com.giovanniberi93.janzowm.stub1
+pid=$(victim_get_pid com.giovanniberi93.janzowm.stub1)
 
 for entry in "h left" "l right" "j full"; do
     read -r key dir <<<"$entry"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared helpers for jwm integration tests. Sourced by test-integration.sh and each test case.
+# Shared helpers for janzowm integration tests. Sourced by test-integration.sh and each test case.
 
 set -euo pipefail
 
@@ -142,7 +142,7 @@ EOF
 victim_activate() {
     local bundle="$1"
     osascript -e "tell application id \"$bundle\" to activate" >/dev/null
-    # NSWorkspace activation notification is async; let jwm process it before
+    # NSWorkspace activation notification is async; let janzowm process it before
     # the next chord. onFocusChanged polls at 0.05s, so 0.15s is a safe gap.
     sleep 0.2
 }
@@ -157,7 +157,7 @@ EOF
 }
 
 # Tell a running stub to spawn an additional window (SIGUSR1 handler in
-# integration-tests/stubs/jwm-stub.swift). Polls until window count grows.
+# integration-tests/stubs/janzowm-stub.swift). Polls until window count grows.
 victim_add_window() {
     local bundle="$1"
     local pid before after
@@ -195,7 +195,7 @@ EOF
 victim_set_rect() {
     local pid="$1" x="$2" y="$3" w="$4" h="$5"
     # Retry on -1719 ("Invalid index"): System Events occasionally reports
-    # `front window` missing for a few hundred ms even when AX (used by jwm)
+    # `front window` missing for a few hundred ms even when AX (used by janzowm)
     # sees the window. Polling for up to ~2s makes the harness resilient
     # without hiding genuine "no window" failures.
     local deadline=$(($(date +%s) + 2))
@@ -228,7 +228,7 @@ frontmost_bundle() {
 
 # --- Synthetic input ----------------------------------------------------------
 
-# Keycodes for the chord keys. jwm reads these via Carbon kVK_ANSI_*; mapping
+# Keycodes for the chord keys. janzowm reads these via Carbon kVK_ANSI_*; mapping
 # is hardcoded here so the harness has no Carbon dependency. macOS default bash
 # is 3.2 (no associative arrays), so this is a case.
 keycode() {

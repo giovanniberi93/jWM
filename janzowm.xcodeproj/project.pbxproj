@@ -7,19 +7,19 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		8B9450052F7880CA00578758 /* jwm.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = jwm.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		AABB00022F88000000000002 /* jwmTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = jwmTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		8B9450052F7880CA00578758 /* janzowm.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = janzowm.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AABB00022F88000000000002 /* janzowmTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = janzowmTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		8B9450072F7880CA00578758 /* jwm */ = {
+		8B9450072F7880CA00578758 /* janzowm */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = jwm;
+			path = janzowm;
 			sourceTree = "<group>";
 		};
-		AABB00032F88000000000003 /* jwmTests */ = {
+		AABB00032F88000000000003 /* janzowmTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = jwmTests;
+			path = janzowmTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -45,8 +45,8 @@
 		8B944FFC2F7880CA00578758 = {
 			isa = PBXGroup;
 			children = (
-				8B9450072F7880CA00578758 /* jwm */,
-				AABB00032F88000000000003 /* jwmTests */,
+				8B9450072F7880CA00578758 /* janzowm */,
+				AABB00032F88000000000003 /* janzowmTests */,
 				8B9450062F7880CA00578758 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -54,8 +54,8 @@
 		8B9450062F7880CA00578758 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				8B9450052F7880CA00578758 /* jwm.app */,
-				AABB00022F88000000000002 /* jwmTests.xctest */,
+				8B9450052F7880CA00578758 /* janzowm.app */,
+				AABB00022F88000000000002 /* janzowmTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -63,9 +63,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		8B9450042F7880CA00578758 /* jwm */ = {
+		8B9450042F7880CA00578758 /* janzowm */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 8B9450262F7880CB00578758 /* Build configuration list for PBXNativeTarget "jwm" */;
+			buildConfigurationList = 8B9450262F7880CB00578758 /* Build configuration list for PBXNativeTarget "janzowm" */;
 			buildPhases = (
 				8B945A0001000000000A0001 /* Generate BuildInfo */,
 				8B9450012F7880CA00578758 /* Sources */,
@@ -77,18 +77,18 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				8B9450072F7880CA00578758 /* jwm */,
+				8B9450072F7880CA00578758 /* janzowm */,
 			);
-			name = jwm;
+			name = janzowm;
 			packageProductDependencies = (
 			);
-			productName = jwm;
-			productReference = 8B9450052F7880CA00578758 /* jwm.app */;
+			productName = janzowm;
+			productReference = 8B9450052F7880CA00578758 /* janzowm.app */;
 			productType = "com.apple.product-type.application";
 		};
-		AABB00052F88000000000005 /* jwmTests */ = {
+		AABB00052F88000000000005 /* janzowmTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = AABB000C2F88000000000012 /* Build configuration list for PBXNativeTarget "jwmTests" */;
+			buildConfigurationList = AABB000C2F88000000000012 /* Build configuration list for PBXNativeTarget "janzowmTests" */;
 			buildPhases = (
 				AABB00062F88000000000006 /* Sources */,
 				AABB00042F88000000000004 /* Frameworks */,
@@ -99,14 +99,14 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				8B9450072F7880CA00578758 /* jwm */,
-				AABB00032F88000000000003 /* jwmTests */,
+				8B9450072F7880CA00578758 /* janzowm */,
+				AABB00032F88000000000003 /* janzowmTests */,
 			);
-			name = jwmTests;
+			name = janzowmTests;
 			packageProductDependencies = (
 			);
-			productName = jwmTests;
-			productReference = AABB00022F88000000000002 /* jwmTests.xctest */;
+			productName = janzowmTests;
+			productReference = AABB00022F88000000000002 /* janzowmTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -127,7 +127,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 8B9450002F7880CA00578758 /* Build configuration list for PBXProject "jwm" */;
+			buildConfigurationList = 8B9450002F7880CA00578758 /* Build configuration list for PBXProject "janzowm" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -141,8 +141,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				8B9450042F7880CA00578758 /* jwm */,
-				AABB00052F88000000000005 /* jwmTests */,
+				8B9450042F7880CA00578758 /* janzowm */,
+				AABB00052F88000000000005 /* janzowmTests */,
 			);
 		};
 /* End PBXProject section */
@@ -180,11 +180,11 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/jwm/BuildInfo.swift",
+				"$(SRCROOT)/janzowm/BuildInfo.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "\"$SRCROOT/scripts/generate_version.sh\" \"$SRCROOT/jwm/BuildInfo.swift\" \"$CONFIGURATION\"\n";
+			shellScript = "\"$SRCROOT/scripts/generate_version.sh\" \"$SRCROOT/janzowm/BuildInfo.swift\" \"$CONFIGURATION\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -336,14 +336,14 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = jWM;
+				INFOPLIST_KEY_CFBundleDisplayName = janzoWM;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.giovanniberi93.jwm;
+				PRODUCT_BUNDLE_IDENTIFIER = com.giovanniberi93.janzowm;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -368,14 +368,14 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = jWM;
+				INFOPLIST_KEY_CFBundleDisplayName = janzoWM;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.giovanniberi93.jwm;
+				PRODUCT_BUNDLE_IDENTIFIER = com.giovanniberi93.janzowm;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -394,7 +394,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.giovanniberi93.jwmTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.giovanniberi93.janzowmTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -410,7 +410,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.giovanniberi93.jwmTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.giovanniberi93.janzowmTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -422,7 +422,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		8B9450002F7880CA00578758 /* Build configuration list for PBXProject "jwm" */ = {
+		8B9450002F7880CA00578758 /* Build configuration list for PBXProject "janzowm" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				8B9450242F7880CB00578758 /* Debug */,
@@ -431,7 +431,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		8B9450262F7880CB00578758 /* Build configuration list for PBXNativeTarget "jwm" */ = {
+		8B9450262F7880CB00578758 /* Build configuration list for PBXNativeTarget "janzowm" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				8B9450272F7880CB00578758 /* Debug */,
@@ -440,7 +440,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		AABB000C2F88000000000012 /* Build configuration list for PBXNativeTarget "jwmTests" */ = {
+		AABB000C2F88000000000012 /* Build configuration list for PBXNativeTarget "janzowmTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				AABB00092F88000000000009 /* Debug */,

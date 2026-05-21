@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "AABB00052F88000000000005"
-               BuildableName = "jwmTests.xctest"
-               BlueprintName = "jwmTests"
-               ReferencedContainer = "container:jwm.xcodeproj">
+               BuildableName = "janzowmTests.xctest"
+               BlueprintName = "janzowmTests"
+               ReferencedContainer = "container:janzowm.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -34,9 +34,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "AABB00052F88000000000005"
-               BuildableName = "jwmTests.xctest"
-               BlueprintName = "jwmTests"
-               ReferencedContainer = "container:jwm.xcodeproj">
+               BuildableName = "janzowmTests.xctest"
+               BlueprintName = "janzowmTests"
+               ReferencedContainer = "container:janzowm.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>

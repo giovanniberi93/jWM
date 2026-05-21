@@ -1,12 +1,12 @@
 #!/usr/bin/env swift
 import AppKit
 
-// Real apps (jwm) initialize NSApplication, which causes AppKit to compute
+// Real apps (janzowm) initialize NSApplication, which causes AppKit to compute
 // `NSScreen.visibleFrame` with the per-screen menu bar inset on secondary
 // displays. Without this, a CLI tool sees `visibleFrame == frame` on the
-// secondary screen and tests built around it disagree with jwm's geometry —
+// secondary screen and tests built around it disagree with janzowm's geometry —
 // in particular when primary is on a different physical display than the
-// one with the menu bar inset jwm placed against.
+// one with the menu bar inset janzowm placed against.
 _ = NSApplication.shared
 
 enum Position: String { case left, right, full }

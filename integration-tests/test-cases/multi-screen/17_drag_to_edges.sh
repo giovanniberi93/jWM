@@ -10,12 +10,12 @@ require_screens 2
 skip_if_mouse_disabled
 
 # See test-cases/13_drag_to_edges.sh for why the overlay stub is launched.
-open -gb com.giovanniberi93.jwm.overlay >/dev/null 2>&1 || true
-trap 'osascript -e "tell application id \"com.giovanniberi93.jwm.overlay\" to quit" 2>/dev/null || true' EXIT
+open -gb com.giovanniberi93.janzowm.overlay >/dev/null 2>&1 || true
+trap 'osascript -e "tell application id \"com.giovanniberi93.janzowm.overlay\" to quit" 2>/dev/null || true' EXIT
 
-victim_launch com.giovanniberi93.jwm.stub1
-victim_activate com.giovanniberi93.jwm.stub1
-pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)
+victim_launch com.giovanniberi93.janzowm.stub1
+victim_activate com.giovanniberi93.janzowm.stub1
+pid=$(victim_get_pid com.giovanniberi93.janzowm.stub1)
 
 # Center a 600x400 rect on screen 1 so the drag stays on that screen.
 read -r fx fy fw fh <<<"$(expected_rect_on 1 full)"

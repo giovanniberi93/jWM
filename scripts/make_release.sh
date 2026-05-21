@@ -37,7 +37,7 @@ git push origin "$TAG"
 ./scripts/prepare_release_package.sh
 
 VERSION="${TAG#v}"
-ZIP="build/jWM-${VERSION}.zip"
+ZIP="build/janzoWM-${VERSION}.zip"
 
 if [[ -n "$NOTES" ]]; then
     gh release create "$TAG" "$ZIP" --title "$TAG" --notes "$NOTES"

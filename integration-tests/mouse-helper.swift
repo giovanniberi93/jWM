@@ -2,7 +2,7 @@
 import Cocoa
 
 // CGEvent-based mouse synthesizer for SnapManager drag-to-snap integration
-// tests. Posts events at .cghidEventTap so jwm's NSEvent global monitor sees
+// tests. Posts events at .cghidEventTap so janzowm's NSEvent global monitor sees
 // them, and AppKit's title-bar drag handling moves the stub window naturally.
 //
 // Coordinates are CG (top-left origin, primary screen) — the same convention

@@ -5,7 +5,7 @@ import ApplicationServices
 /// `NSWorkspace.didActivateApplicationNotification` does not see. Cmd+`,
 /// clicking a background window of the focused app, picking a window from the
 /// Window menu, and Mission Control window picks all change the focused
-/// window without firing a cross-app activation. Without this watcher, jwm
+/// window without firing a cross-app activation. Without this watcher, janzowm
 /// has no chance to react — a half-tiled sibling coming forward over a
 /// fullscreen window won't displace it.
 ///

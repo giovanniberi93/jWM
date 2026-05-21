@@ -6,7 +6,7 @@
 #
 # Catches the class of bugs where coordinate math depends on which NSScreen
 # is screens[0] (e.g. menu-bar inset applied to the wrong screen, stale
-# visibleFrame in the long-running jwm process after a primary swap).
+# visibleFrame in the long-running janzowm process after a primary swap).
 #
 # Requires: displayplacer (`brew install displayplacer`). Without it, the
 # test exits with a clear setup error.
@@ -75,7 +75,7 @@ run_three_moves() {
     read -r fx fy fw fh <<<"$(expected_rect_on 0 full)"
     victim_set_rect "$pid" "$fx" "$fy" "$fw" "$fh"
     sleep 0.2
-    post_tile_current j  # promote via tile-current so jwm tracks it as full
+    post_tile_current j  # promote via tile-current so janzowm tracks it as full
     assert_rect_exact "$pid" "$fx" "$fy" "$fw" "$fh" || {
         echo "  $label setup: stub2 not fullscreen on screen 0" >&2
         return 1
@@ -112,18 +112,18 @@ run_three_moves() {
 }
 
 # --- Run -----------------------------------------------------------------------
-victim_launch com.giovanniberi93.jwm.stub2
-victim_activate com.giovanniberi93.jwm.stub2
-stub2_pid=$(victim_get_pid com.giovanniberi93.jwm.stub2)
+victim_launch com.giovanniberi93.janzowm.stub2
+victim_activate com.giovanniberi93.janzowm.stub2
+stub2_pid=$(victim_get_pid com.giovanniberi93.janzowm.stub2)
 
 run_three_moves "config A (original primary)" "$stub2_pid"
 
 echo "  swapping primary via displayplacer..." >&2
 displayplacer "$SCREEN_A_SWAP" "$SCREEN_B_SWAP" >/dev/null
-# Display reconfig is async. Give AppKit and jwm time to refresh
+# Display reconfig is async. Give AppKit and janzowm time to refresh
 # NSScreen state before the next chord.
 sleep 2
 # Stub2 may have been knocked off-frontmost by the display reconfig.
-victim_activate com.giovanniberi93.jwm.stub2
+victim_activate com.giovanniberi93.janzowm.stub2
 
 run_three_moves "config B (swapped primary)" "$stub2_pid"

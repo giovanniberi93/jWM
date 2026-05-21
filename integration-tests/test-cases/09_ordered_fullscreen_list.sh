@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Ordered fullscreen list: jwm tracks more than one full-screen app at a time
+# Ordered fullscreen list: janzowm tracks more than one full-screen app at a time
 # and pops displacement targets in reverse order of promotion. Three apps go
 # full in sequence (T, TE, N), then two successive half-tile chords should
 # displace N first, TE second.
 set -euo pipefail
 source "$ROOT/integration-tests/test-lib.sh"
 
-victim_launch com.giovanniberi93.jwm.stub1
-victim_launch com.giovanniberi93.jwm.stub2
-victim_launch com.giovanniberi93.jwm.stub3
+victim_launch com.giovanniberi93.janzowm.stub1
+victim_launch com.giovanniberi93.janzowm.stub2
+victim_launch com.giovanniberi93.janzowm.stub3
 
-stub1_pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)
-stub2_pid=$(victim_get_pid com.giovanniberi93.jwm.stub2)
-stub3_pid=$(victim_get_pid com.giovanniberi93.jwm.stub3)
+stub1_pid=$(victim_get_pid com.giovanniberi93.janzowm.stub1)
+stub2_pid=$(victim_get_pid com.giovanniberi93.janzowm.stub2)
+stub3_pid=$(victim_get_pid com.giovanniberi93.janzowm.stub3)
 
 read -r fx fy fw fh <<<"$(expected_rect full)"
 read -r lx ly lw lh <<<"$(expected_rect left)"
@@ -20,15 +20,15 @@ read -r rx ry rw rh <<<"$(expected_rect right)"
 
 # Mirrors test 08's natively-zoomed setup. Three sequential activations let
 # defocus-promote on each transition add the prior frontmost to the slot.
-victim_activate com.giovanniberi93.jwm.stub1
+victim_activate com.giovanniberi93.janzowm.stub1
 victim_set_rect "$stub1_pid" "$fx" "$fy" "$fw" "$fh"
 sleep 0.6
 
-victim_activate com.giovanniberi93.jwm.stub2
+victim_activate com.giovanniberi93.janzowm.stub2
 victim_set_rect "$stub2_pid" "$fx" "$fy" "$fw" "$fh"
 sleep 0.6
 
-victim_activate com.giovanniberi93.jwm.stub3
+victim_activate com.giovanniberi93.janzowm.stub3
 victim_set_rect "$stub3_pid" "$fx" "$fy" "$fw" "$fh"
 sleep 0.6
 

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Per-hour usage counters persisted to disk. Storage lives at
-/// `~/Library/Application Support/jwm/usage-stats.json` so it survives app
+/// `~/Library/Application Support/janzowm/usage-stats.json` so it survives app
 /// reinstalls and is shared between debug and release builds.
 ///
 /// Hour buckets use the user's local time zone (wall-clock hours are what the
@@ -49,7 +49,7 @@ enum UsageStats {
     private static var fileURL: URL {
         let fm = FileManager.default
         let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let dir = base.appendingPathComponent("jwm", isDirectory: true)
+        let dir = base.appendingPathComponent("janzowm", isDirectory: true)
         if !fm.fileExists(atPath: dir.path) {
             try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         }

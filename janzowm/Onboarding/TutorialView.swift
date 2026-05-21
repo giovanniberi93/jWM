@@ -66,7 +66,7 @@ struct TutorialView: View {
     }
 
     private var tryFocusStep: some View {
-        var lede = AttributedString("Press ⌘1 anywhere on your Mac. jWM will focus the app you just bound.")
+        var lede = AttributedString("Press ⌘1 anywhere on your Mac. janzoWM will focus the app you just bound.")
         if let r = lede.range(of: "⌘1") { lede[r].font = .system(size: 14, weight: .semibold) }
         return TryChordStep(
             eyebrow: "Step 3 of 4 · Try it",

@@ -2,10 +2,10 @@
 # Build minimal AppKit stub apps used as victim apps in integration tests.
 # All stubs share the same compiled binary but are packaged into distinct
 # .app bundles with unique bundle ids:
-#   com.giovanniberi93.jwm.stub{1,2,3} — well-behaved victims
-#   com.giovanniberi93.jwm.problematic — opt-in misbehaviors via CLI flags
+#   com.giovanniberi93.janzowm.stub{1,2,3} — well-behaved victims
+#   com.giovanniberi93.janzowm.problematic — opt-in misbehaviors via CLI flags
 #     (--drift-back-times, --spawn-delay-ms, --windows 0); used to
-#     exercise jwm's defensive logic (guardPosition, onFocusChanged,
+#     exercise janzowm's defensive logic (guardPosition, onFocusChanged,
 #     focusOrLaunch's no-window branch). Pass flags with
 #     `open -b <bundle> -n --args ...`.
 # Registered with Launch Services so `open -b` resolves them.
@@ -13,8 +13,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUILD_DIR="$ROOT/build/test-stubs"
-SRC="$ROOT/integration-tests/stubs/jwm-stub.swift"
-BIN="$BUILD_DIR/jwm-stub"
+SRC="$ROOT/integration-tests/stubs/janzowm-stub.swift"
+BIN="$BUILD_DIR/janzowm-stub"
 OVERLAY_SRC="$ROOT/integration-tests/stubs/overlay-stub.swift"
 OVERLAY_BIN="$BUILD_DIR/overlay-stub"
 
@@ -22,16 +22,16 @@ mkdir -p "$BUILD_DIR"
 swiftc -O "$SRC" -o "$BIN"
 swiftc -O "$OVERLAY_SRC" -o "$OVERLAY_BIN"
 
-NAMES=(JwmStub1 JwmStub2 JwmStub3 JwmStubProblematic JwmStubOverlay)
+NAMES=(JanzoWMStub1 JanzoWMStub2 JanzoWMStub3 JanzoWMStubProblematic JanzoWMStubOverlay)
 BUNDLE_IDS=(
-    com.giovanniberi93.jwm.stub1
-    com.giovanniberi93.jwm.stub2
-    com.giovanniberi93.jwm.stub3
-    com.giovanniberi93.jwm.problematic
-    com.giovanniberi93.jwm.overlay
+    com.giovanniberi93.janzowm.stub1
+    com.giovanniberi93.janzowm.stub2
+    com.giovanniberi93.janzowm.stub3
+    com.giovanniberi93.janzowm.problematic
+    com.giovanniberi93.janzowm.overlay
 )
-# JwmStubOverlay uses the overlay binary; the rest share jwm-stub.
-SRC_BIN_FOR=(jwm-stub jwm-stub jwm-stub jwm-stub overlay-stub)
+# JanzoWMStubOverlay uses the overlay binary; the rest share janzowm-stub.
+SRC_BIN_FOR=(janzowm-stub janzowm-stub janzowm-stub janzowm-stub overlay-stub)
 LSREG="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 
 for i in "${!NAMES[@]}"; do

@@ -4,16 +4,17 @@
 set -euo pipefail
 source "$ROOT/integration-tests/test-lib.sh"
 
-TEST_BUNDLE_ID="com.giovanniberi93.jwm.debug"
+TEST_BUNDLE_ID="com.giovanniberi93.janzowm.debug"
 
 defaults write "$TEST_BUNDLE_ID" useArrowKeys -bool YES
-trap 'defaults delete "$TEST_BUNDLE_ID" useArrowKeys 2>/dev/null || true' EXIT
-# cfprefsd broadcasts the change to the running jwm; give it a moment.
+# Restore to the driver-set letter-mode value so later tests still see letters.
+trap 'defaults write "$TEST_BUNDLE_ID" useArrowKeys -bool NO' EXIT
+# cfprefsd broadcasts the change to the running janzowm; give it a moment.
 sleep 0.4
 
-victim_launch com.giovanniberi93.jwm.stub1
-victim_activate com.giovanniberi93.jwm.stub1
-pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)
+victim_launch com.giovanniberi93.janzowm.stub1
+victim_activate com.giovanniberi93.janzowm.stub1
+pid=$(victim_get_pid com.giovanniberi93.janzowm.stub1)
 
 # Carbon kVK codes for arrows, hardcoded here so test-lib.sh stays unchanged.
 LEFT_KC=123

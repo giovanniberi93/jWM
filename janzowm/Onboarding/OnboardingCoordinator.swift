@@ -45,7 +45,7 @@ final class OnboardingCoordinator: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "Welcome to jWM"
+        window.title = "Welcome to janzoWM"
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .visible
         window.isReleasedWhenClosed = false

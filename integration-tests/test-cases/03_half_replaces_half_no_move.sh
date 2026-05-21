@@ -5,9 +5,9 @@ set -euo pipefail
 source "$ROOT/integration-tests/test-lib.sh"
 
 # 1. stub1 → left
-victim_launch com.giovanniberi93.jwm.stub1
-victim_activate com.giovanniberi93.jwm.stub1
-stub1_pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)
+victim_launch com.giovanniberi93.janzowm.stub1
+victim_activate com.giovanniberi93.janzowm.stub1
+stub1_pid=$(victim_get_pid com.giovanniberi93.janzowm.stub1)
 victim_set_rect "$stub1_pid" 300 300 500 350
 sleep 0.1
 post_tile_current h
@@ -18,9 +18,9 @@ assert_rect_approx "$stub1_pid" "$lx" "$ly" "$lw" "$lh" || {
 }
 
 # 2. stub2 → left (same slot)
-victim_launch com.giovanniberi93.jwm.stub2
-victim_activate com.giovanniberi93.jwm.stub2
-stub2_pid=$(victim_get_pid com.giovanniberi93.jwm.stub2)
+victim_launch com.giovanniberi93.janzowm.stub2
+victim_activate com.giovanniberi93.janzowm.stub2
+stub2_pid=$(victim_get_pid com.giovanniberi93.janzowm.stub2)
 victim_set_rect "$stub2_pid" 400 400 500 350
 sleep 0.1
 post_tile_current h

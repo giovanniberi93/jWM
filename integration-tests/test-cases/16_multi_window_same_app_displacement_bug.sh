@@ -35,9 +35,9 @@ read -r lx ly lw lh <<<"$(expected_rect left)"
 read -r rx ry rw rh <<<"$(expected_rect right)"
 
 # 1. stub1 + w1, tiled full.
-victim_launch com.giovanniberi93.jwm.stub1
-victim_activate com.giovanniberi93.jwm.stub1
-stub1_pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)
+victim_launch com.giovanniberi93.janzowm.stub1
+victim_activate com.giovanniberi93.janzowm.stub1
+stub1_pid=$(victim_get_pid com.giovanniberi93.janzowm.stub1)
 victim_set_rect "$stub1_pid" 300 300 500 350
 sleep 0.1
 post_tile_current j
@@ -48,7 +48,7 @@ assert_rect_approx "$stub1_pid" "$fx" "$fy" "$fw" "$fh" || {
 
 # 2. Spawn w2 inside stub1. The SIGUSR1 handler calls makeKeyAndOrderFront,
 # so after this returns w2 is z-order top and AX-focused, w1 is behind.
-victim_add_window com.giovanniberi93.jwm.stub1
+victim_add_window com.giovanniberi93.janzowm.stub1
 sleep 0.6
 
 # 3. Tile current (= w2) to the right half. No NSWorkspace activation fires

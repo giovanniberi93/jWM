@@ -219,12 +219,12 @@ private struct EdgeTilingRow: View {
                 HStack(spacing: 6) {
                     if macOSTilingEnabled {
                         StatusChip(text: "FIX", fg: DS.amber, bg: DS.amberBg)
-                        Text("Should be disabled — conflicts with jWM's drag-to-edge snapping")
+                        Text("Should be disabled — conflicts with janzoWM's drag-to-edge snapping")
                             .font(.system(size: 11.5))
                             .foregroundStyle(.secondary)
                     } else {
                         StatusChip(text: "OK", fg: DS.green, bg: DS.okBg)
-                        Text("Already disabled — no conflict with jWM")
+                        Text("Already disabled — no conflict with janzoWM")
                             .font(.system(size: 11.5))
                             .foregroundStyle(.secondary)
                     }

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-OUTPUT="${1:-jwm/BuildInfo.swift}"
+OUTPUT="${1:-janzowm/BuildInfo.swift}"
 CONFIG="${2:-Debug}"
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"

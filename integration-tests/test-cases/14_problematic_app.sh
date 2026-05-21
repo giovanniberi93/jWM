@@ -12,11 +12,11 @@
 #                 (drift-back) once.
 #
 # All three use the same chord (cmd+4 + J → focus-tile full) so phases differ
-# only in stub configuration, not in jwm-side machinery.
+# only in stub configuration, not in janzowm-side machinery.
 set -euo pipefail
 source "$ROOT/integration-tests/test-lib.sh"
 
-PROB_BUNDLE="${PROB_BUNDLE:-com.giovanniberi93.jwm.problematic}"
+PROB_BUNDLE="${PROB_BUNDLE:-com.giovanniberi93.janzowm.problematic}"
 
 # --- Helpers -----------------------------------------------------------------
 
@@ -77,8 +77,8 @@ wait_for_window_or_fail() {
 # Park stub1 in front so the chord routes through onFocusTile's "not running
 # OR no windows" branch (the one that wraps in guardPosition).
 park_other_app_in_front() {
-    victim_launch com.giovanniberi93.jwm.stub1
-    victim_activate com.giovanniberi93.jwm.stub1
+    victim_launch com.giovanniberi93.janzowm.stub1
+    victim_activate com.giovanniberi93.janzowm.stub1
 }
 
 assert_full_or_fail() {

@@ -7,9 +7,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-MENU_BAR_SVG="$SCRIPT_DIR/../jwm/Assets.xcassets/MenuBarIcon.imageset/icon.svg"
-APP_ICON_SVG="$SCRIPT_DIR/../jwm/Assets.xcassets/AppIcon.appiconset/app_icon.svg"
-OUT_DIR="$SCRIPT_DIR/../jwm/Assets.xcassets/AppIcon.appiconset"
+MENU_BAR_SVG="$SCRIPT_DIR/../janzowm/Assets.xcassets/MenuBarIcon.imageset/icon.svg"
+APP_ICON_SVG="$SCRIPT_DIR/../janzowm/Assets.xcassets/AppIcon.appiconset/app_icon.svg"
+OUT_DIR="$SCRIPT_DIR/../janzowm/Assets.xcassets/AppIcon.appiconset"
 TMP_DIR="$(mktemp -d)"
 
 trap 'rm -rf "$TMP_DIR"' EXIT

@@ -12,15 +12,15 @@ source "$ROOT/integration-tests/test-lib.sh"
 
 require_screens 2
 
-victim_launch com.giovanniberi93.jwm.stub2
-victim_activate com.giovanniberi93.jwm.stub2
-stub2_pid=$(victim_get_pid com.giovanniberi93.jwm.stub2)
+victim_launch com.giovanniberi93.janzowm.stub2
+victim_activate com.giovanniberi93.janzowm.stub2
+stub2_pid=$(victim_get_pid com.giovanniberi93.janzowm.stub2)
 
 # Start fullscreen on the primary screen.
 read -r fx fy fw fh <<<"$(expected_rect_on 0 full)"
 victim_set_rect "$stub2_pid" "$fx" "$fy" "$fw" "$fh"
 sleep 0.2
-post_tile_current j  # promote via tile-current so jwm tracks it as full
+post_tile_current j  # promote via tile-current so janzowm tracks it as full
 assert_rect_exact "$stub2_pid" "$fx" "$fy" "$fw" "$fh" || {
     echo "  setup: stub2 not fullscreen on screen 0" >&2
     exit 1

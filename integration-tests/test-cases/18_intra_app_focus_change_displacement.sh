@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Intra-app focus-change displacement: when focus shifts between two windows
 # of the *same* app (Cmd+`, click on background window, Window menu, etc.)
-# without any jwm chord and without a cross-app activation, jwm should still
+# without any janzowm chord and without a cross-app activation, janzowm should still
 # react. If the now-focused sibling sits at a half rect and another window is
 # tracked as fullscreen, that fullscreen window must be displaced to the
 # opposite half.
@@ -15,7 +15,7 @@
 set -euo pipefail
 source "$ROOT/integration-tests/test-lib.sh"
 
-OVERRIDE_FILE="/tmp/jwm-stub-initial-frame.txt"
+OVERRIDE_FILE="/tmp/janzowm-stub-initial-frame.txt"
 trap 'rm -f "$OVERRIDE_FILE"' EXIT
 
 read -r fx fy fw fh <<<"$(expected_rect full)"
@@ -23,9 +23,9 @@ read -r lx ly lw lh <<<"$(expected_rect left)"
 read -r rx ry rw rh <<<"$(expected_rect right)"
 
 # 1. stub1 + w1, tiled fullscreen so the slot map has a candidate to displace.
-victim_launch com.giovanniberi93.jwm.stub1
-victim_activate com.giovanniberi93.jwm.stub1
-stub1_pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)
+victim_launch com.giovanniberi93.janzowm.stub1
+victim_activate com.giovanniberi93.janzowm.stub1
+stub1_pid=$(victim_get_pid com.giovanniberi93.janzowm.stub1)
 victim_set_rect "$stub1_pid" 300 300 500 350
 sleep 0.1
 post_tile_current j
@@ -39,7 +39,7 @@ assert_rect_approx "$stub1_pid" "$fx" "$fy" "$fw" "$fh" || {
 # becomes AX-focused — the AX focus-changed notification fires with no
 # NSWorkspace activation (same app, same pid).
 echo "$lx $ly $lw $lh" > "$OVERRIDE_FILE"
-victim_add_window com.giovanniberi93.jwm.stub1
+victim_add_window com.giovanniberi93.janzowm.stub1
 sleep 0.6
 
 # 3. w1 (still AppleScript-window-2 behind w2) must have been displaced to

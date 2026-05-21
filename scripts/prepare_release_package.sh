@@ -4,8 +4,8 @@ set -euo pipefail
 REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
-APP_PATH="build/Build/Products/Release/jwm.app"
-BUNDLE_ID="com.giovanniberi93.jwm"
+APP_PATH="build/Build/Products/Release/janzowm.app"
+BUNDLE_ID="com.giovanniberi93.janzowm"
 
 RAW="$(git describe --tags --dirty --match 'v*')"
 case "$RAW" in
@@ -23,7 +23,7 @@ make release
 
 codesign --force --deep --sign - --identifier "$BUNDLE_ID" "$APP_PATH"
 
-ZIP_PATH="build/jWM-${VERSION}.zip"
+ZIP_PATH="build/janzoWM-${VERSION}.zip"
 rm -f "$ZIP_PATH"
 ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ZIP_PATH"
 

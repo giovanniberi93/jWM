@@ -5,13 +5,13 @@
 set -euo pipefail
 source "$ROOT/integration-tests/test-lib.sh"
 
-victim_launch com.giovanniberi93.jwm.stub1
-stub1_pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)
+victim_launch com.giovanniberi93.janzowm.stub1
+stub1_pid=$(victim_get_pid com.giovanniberi93.janzowm.stub1)
 
 # Park stub2 on top so the next stub1 activation actually fires
 # NSWorkspace.didActivateApplicationNotification.
-victim_launch com.giovanniberi93.jwm.stub2
-victim_activate com.giovanniberi93.jwm.stub2
+victim_launch com.giovanniberi93.janzowm.stub2
+victim_activate com.giovanniberi93.janzowm.stub2
 
 # Place stub1 near the left half — within both tolerances of matchHalfPosition
 # (20px on origin, 15% on size). Big enough offset that "no snap" would visibly
@@ -23,9 +23,9 @@ near_w=$((lw * 108 / 100))
 near_h=$((lh * 92 / 100))
 victim_set_rect "$stub1_pid" "$near_x" "$near_y" "$near_w" "$near_h"
 
-# Fire activation → jwm's onFocusChanged polls snapFocusedToExactHalf, which
+# Fire activation → janzowm's onFocusChanged polls snapFocusedToExactHalf, which
 # calls matchHalfPosition, which returns .left, which triggers the snap.
-victim_activate com.giovanniberi93.jwm.stub1
+victim_activate com.giovanniberi93.janzowm.stub1
 
 # Tight tolerance: the snap must produce the EXACT left rect, not just the
 # original near-half rect (which would already pass default tolerance).

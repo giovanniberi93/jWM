@@ -32,7 +32,7 @@ final class SnapManager {
         // to recreate the "ignored-bundle covering the click point" condition
         // that drives the AX hit-test fallback. See
         // integration-tests/stubs/overlay-stub.swift.
-        "com.giovanniberi93.jwm.overlay",
+        "com.giovanniberi93.janzowm.overlay",
     ]
 
     func start() {
@@ -217,7 +217,7 @@ final class SnapManager {
         let frame = screen.frame
 
         // Top wins over sides so corners go to fullscreen rather than half —
-        // jwm has no quarter-tile concept, and "drag up = maximize" matches
+        // janzowm has no quarter-tile concept, and "drag up = maximize" matches
         // Rectangle's default for the top snap area.
         if cursor.y >= frame.maxY - edgeMargin { return (.fullScreen, screen) }
         if cursor.x <= frame.minX + edgeMargin { return (.left, screen) }

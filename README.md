@@ -1,6 +1,6 @@
- # jWM — janzo's Window Manager
+ # janzoWM — janzo's Window Manager
 
- <img src="./assets/settings.png" alt="jWM settings screenshot">
+ <img src="./assets/settings.png" alt="janzoWM settings screenshot">
 <p align="center">A simple tiling window manager for MacOS.</p>
 <p align="center">It combines app focusing and window tiling into a single key-chord interaction.</p>
 <p align="center"><em>(Vim-like keybindings supported!)</em></p>
@@ -26,29 +26,29 @@
   </tr>
 </table>
 
-## Why jWM?
+## Why janzoWM?
 
 I've been a happy [Rectangle](https://rectangleapp.com/) user for a few years, but the problem with it is that you always have to focus the app you're interested in, _and then_ you can move it around using Rectangle. My solution was to use [Raycast](https://www.raycast.com/) to quickly launch or focus the application I wanted to move with Rectangle.
 
-That worked, but I came to dislike having to always perform two separate operations to move a single window. `jWM` solves this issue by combining app focusing and window tiling in a single key-chord.
+That worked, but I came to dislike having to always perform two separate operations to move a single window. `janzoWM` solves this issue by combining app focusing and window tiling in a single key-chord.
 
 ## Installation
 
 Install via [Homebrew](https://brew.sh):
 
 ```bash
-brew install --cask giovanniberi93/jwm/jwm
+brew install --cask giovanniberi93/janzowm/janzowm
 ```
 
-> ***Why does macOS block jWM on first launch?***
+> ***Why does macOS block janzoWM on first launch?***
 >
-> jWM is distributed unsigned (no $99/yr Apple Developer Program). The first launch hits Gatekeeper and the app refuses to open. Two ways past it:
+> `janzoWM` is distributed unsigned (no $99/yr Apple Developer Program). The first launch hits Gatekeeper and the app refuses to open. Two ways past it:
 >
-> - **System Settings → Privacy & Security**, scroll to the "*jWM* was blocked..." notice and click **Open Anyway**, then confirm; or
+> - **System Settings → Privacy & Security**, scroll to the "*janzoWM* was blocked..." notice and click **Open Anyway**, then confirm; or
 > - remove the quarantine attribute from the bundle via command line:
 >
 > ```bash
-> xattr -dr com.apple.quarantine /Applications/jWM.app
+> xattr -dr com.apple.quarantine /Applications/janzoWM.app
 > ```
 
 After launch, grant Accessibility permission when prompted: **System Settings → Privacy & Security → Accessibility**.
@@ -57,7 +57,7 @@ After launch, grant Accessibility permission when prompted: **System Settings �
 
 ### App focusing: `⌘`+`<N>`, `⌘`+`⇧`+`<N>`
 
-In jWM settings in the menu bar, each number key (0-9) can be bound to two apps:
+In `janzoWM` settings in the menu bar, each number key (0-9) can be bound to two apps:
 - main app binding: `⌘`+`<N>`
 - alternate app binding: `⌘`+`⇧`+`<N>`
 
@@ -106,11 +106,11 @@ Drag any window to the left/right/top screen edge to tile it. A preview overlay 
 
 ### Disable conflicting macOS built-in window tiling
 
-macOS has its own drag-to-edge tiling that conflicts with jWM. Check the "Conflicting macOS settings" section in the settings to make sure all macOS settings are set properly.
+macOS has its own drag-to-edge tiling that conflicts with `janzoWM`. Check the "Conflicting macOS settings" section in the settings to make sure all macOS settings are set properly.
 
 ### Reset accessibility permissions
 
-jWM needs Accessibility access to manage windows. macOS will prompt on first launch. If it stops working after a rebuild, reset the permission:
+`janzoWM` needs Accessibility access to manage windows. macOS will prompt on first launch. If it stops working after a rebuild, reset the permission:
 
 ```bash
 make reset-accessibility-permissions

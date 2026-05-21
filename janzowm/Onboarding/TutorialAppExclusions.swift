@@ -43,7 +43,7 @@ enum TutorialAppExclusions {
         "com.apple.weather",
         "com.crowdstrike.falcon.App",
         "com.docker.docker",
-        "com.giovanniberi93.jwm",
+        "com.giovanniberi93.janzowm",
         "com.google.drivefs",
         "com.google.drivefs.shortcuts.docs",
         "com.google.drivefs.shortcuts.sheets",

@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Step 9 — success page. Big ✓ badge, recap card with three rows, and a
-/// "Start using jWM" primary that closes the window and sets the
+/// "Start using janzoWM" primary that closes the window and sets the
 /// completion flag (handled by the coordinator).
 struct DoneStep: View {
     let onFinish: () -> Void
@@ -32,7 +32,7 @@ struct DoneStep: View {
 
             HStack {
                 Spacer()
-                TutorialButton.primary("Start using jWM", action: onFinish)
+                TutorialButton.primary("Start using janzoWM", action: onFinish)
             }
         }
     }

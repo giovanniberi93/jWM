@@ -15,17 +15,17 @@ struct DualLogger {
 
     func info(_ message: String) {
         osLog.info("\(message, privacy: .public)")
-        print("[\(timestamp)] jwm: \(message)")
+        print("[\(timestamp)] janzowm: \(message)")
     }
 
     func error(_ message: String) {
         osLog.error("\(message, privacy: .public)")
-        print("[\(timestamp)] jwm: ERROR: \(message)")
+        print("[\(timestamp)] janzowm: ERROR: \(message)")
     }
 }
 
 @main
-struct jwmApp: App {
+struct janzowmApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     init() {
@@ -36,7 +36,7 @@ struct jwmApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra("jwm", image: "MenuBarIcon") {
+        MenuBarExtra("janzowm", image: "MenuBarIcon") {
             Button("Settings...") {
                 SettingsWindowController.shared.show()
             }
@@ -70,7 +70,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "jWM Settings"
+        window.title = "janzoWM Settings"
         window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false
         window.delegate = self
@@ -164,7 +164,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let bundleIDs = [BundleIDs.releaseBundleID, BundleIDs.integrationTestBundleID]
         let total = bundleIDs.reduce(0) { $0 + NSRunningApplication.runningApplications(withBundleIdentifier: $1).count }
         if total > 1 {
-            logger.info("Another jwm instance is already running, quitting")
+            logger.info("Another janzowm instance is already running, quitting")
             NSApp.terminate(nil)
             return
         }
@@ -275,11 +275,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onAbortIntegrationTests: {
                 // Bailout for a wedged integration test run: nuke every
-                // known stub and shut jwm down. Stubs are matched against
+                // known stub and shut janzowm down. Stubs are matched against
                 // BundleIDs.integrationTestStubBundleIDs (a fixed list) so
                 // this can't ever kill a user-owned app — only the known
                 // test victims.
-                logger.error("Aborting integration tests — terminating stubs and exiting jwm")
+                logger.error("Aborting integration tests — terminating stubs and exiting janzowm")
                 for bundleID in BundleIDs.integrationTestStubBundleIDs {
                     for app in NSRunningApplication.runningApplications(withBundleIdentifier: bundleID) {
                         logger.info("Abort: terminating \(app.localizedName ?? bundleID) (pid=\(app.processIdentifier))")

@@ -17,7 +17,7 @@ struct WelcomeStep: View {
                     .shadow(color: .black.opacity(0.08), radius: 1, y: 1)
 
                 VStack(spacing: 8) {
-                    Text("Welcome to jWM.")
+                    Text("Welcome to janzoWM.")
                         .font(.system(size: 26, weight: .semibold))
                         .tracking(-0.4)
                     Text("Tile windows with one chord.\nTakes about 30 seconds to set up.")

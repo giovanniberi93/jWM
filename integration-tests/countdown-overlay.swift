@@ -74,7 +74,7 @@ final class Delegate: NSObject, NSApplicationDelegate {
     }
 
     private func text(for n: Int) -> String {
-        "jWM integration tests\nstarting in \(n)…"
+        "janzoWM integration tests\nstarting in \(n)…"
     }
 }
 

@@ -8,17 +8,17 @@ source "$ROOT/integration-tests/test-lib.sh"
 skip_if_mouse_disabled
 
 # Launch the overlay stub: a borderless level-21 window covering the screen
-# whose bundle id is in jwm's ignoredBundleIDs. This recreates the wild
+# whose bundle id is in janzowm's ignoredBundleIDs. This recreates the wild
 # Notification-Center-covers-the-click-point condition that exposed the Quartz
 # windowAtPoint short-circuit (see SnapManager.getWindowInfoUnderCursor's
 # AX fallback). Without this, the fast path almost always succeeds and the
 # fallback is untested.
-open -gb com.giovanniberi93.jwm.overlay >/dev/null 2>&1 || true
-trap 'osascript -e "tell application id \"com.giovanniberi93.jwm.overlay\" to quit" 2>/dev/null || true' EXIT
+open -gb com.giovanniberi93.janzowm.overlay >/dev/null 2>&1 || true
+trap 'osascript -e "tell application id \"com.giovanniberi93.janzowm.overlay\" to quit" 2>/dev/null || true' EXIT
 
-victim_launch com.giovanniberi93.jwm.stub1
-victim_activate com.giovanniberi93.jwm.stub1
-pid=$(victim_get_pid com.giovanniberi93.jwm.stub1)
+victim_launch com.giovanniberi93.janzowm.stub1
+victim_activate com.giovanniberi93.janzowm.stub1
+pid=$(victim_get_pid com.giovanniberi93.janzowm.stub1)
 
 # Center a 600x400 rect on the primary screen so the drag is short and the
 # starting position never matches a snap shape.
