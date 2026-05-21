@@ -152,6 +152,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 class AppDelegate: NSObject, NSApplicationDelegate {
     private let hotkeyManager = HotkeyManager()
     private let snapManager = SnapManager()
+    private lazy var chordPreview = ChordPreviewWindow()
     private var accessibilityTimer: Timer?
     /// Retained so the SIGUSR1 handler keeps firing — DispatchSourceSignal
     /// is cancelled when its last strong reference drops.
@@ -214,10 +215,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 logger.info("Focusing \(appKey) -> \(bundleID)")
                 UsageStats.record(.focus)
-                AppFocuser.focusOrLaunch(bundleID: bundleID)
+                if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first,
+                   AppFocuser.appHasWindows(pid: app.processIdentifier) {
+                    // Already running with a window — just activate, don't resize.
+                    app.activate()
+                } else {
+                    // Needs launching (not running, or running with no windows
+                    // e.g. Chrome with all windows closed). Tile fullscreen on
+                    // launch so the resulting geometry is predictable rather
+                    // than whatever macOS restores. Mirrors the launch path in
+                    // onFocusTile — same suppressDisplaceForBundleID guard
+                    // against snapFocusedToExactHalf acting on the restored
+                    // geometry mid-launch.
+                    logger.info("App \(bundleID) not running or has no windows, launching + fullscreening...")
+                    WindowTiler.suppressDisplaceForBundleID = bundleID
+                    AppFocuser.launchAndWaitForWindow(bundleID: bundleID) { app in
+                        defer {
+                            if WindowTiler.suppressDisplaceForBundleID == bundleID {
+                                WindowTiler.suppressDisplaceForBundleID = nil
+                            }
+                        }
+                        guard let app = app else { return }
+                        WindowTiler.tile(.fullScreen, app: app)
+                        app.activate()
+                        WindowAX.guardPosition(pid: app.processIdentifier) {
+                            WindowTiler.tile(.fullScreen, app: app)
+                        }
+                    }
+                }
                 OnboardingCoordinator.shared.observeAction(.focus(slotKey: appKey))
-                // No explicit snapshot of the new app: NSWorkspace activation
-                // notification will fire and onFocusChanged handles it.
             },
             onTile: { position in
                 UsageStats.record(.tile)
@@ -273,6 +299,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     WindowTiler.syncSlots(for: front)
                 }
             },
+            onPreviewBegin: { [weak self] appKey in
+                DispatchQueue.main.async { self?.showChordPreview(for: appKey) }
+            },
+            onPreviewEnd: { [weak self] in
+                DispatchQueue.main.async { self?.chordPreview.hide() }
+            },
+            onPreviewCommit: { [weak self] position in
+                DispatchQueue.main.async { self?.animateChordPreviewOut(to: position) }
+            },
             onAbortIntegrationTests: {
                 // Bailout for a wedged integration test run: nuke every
                 // known stub and shut jwm down. Stubs are matched against
@@ -294,6 +329,82 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // chord-rehearsal steps can actually fire. Skipped if the user has
         // already finished the tutorial in a prior session.
         OnboardingCoordinator.shared.presentIfFirstRun()
+    }
+
+    /// Render the chord preview for the given app key. Pure rendering —
+    /// no slot/focus/AX mutation. Called on the main thread from the
+    /// HotkeyManager.onPreviewBegin hop.
+    private func showChordPreview(for appKey: String) {
+        if UserDefaults.standard.bool(forKey: "integrationTestMode") { return }
+
+        let bundleID = UserDefaults.standard.string(forKey: "\(appKey)_bundleID") ?? ""
+        let chord = chordPreviewLabel(for: appKey)
+        // Resolve name + icon from the app bundle on disk — works identically
+        // whether or not the app is running, so the card and the halo show
+        // the same chip.
+        let appURL = bundleID.isEmpty
+            ? nil
+            : NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+        let appLabel: String = {
+            if let path = appURL?.path { return FileManager.default.displayName(atPath: path) }
+            if !bundleID.isEmpty { return bundleID }
+            return "No app configured"
+        }()
+        let icon = appURL.map { NSWorkspace.shared.icon(forFile: $0.path) }
+        let state = ChordPreviewState(appLabel: appLabel, chord: chord, icon: icon)
+
+        // Try to halo the app's frontmost on-screen window via Quartz —
+        // no AX hop into the target app (per CLAUDE.md: prefer Quartz over AX).
+        let runningApp = bundleID.isEmpty
+            ? nil
+            : NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first
+        if let pid = runningApp?.processIdentifier,
+           let target = QuartzWindowList.windowsForPid(pid).first {
+            // Inflate slightly so the stroke wraps the window edge rather than
+            // overlapping the target's title bar / content.
+            let inflated = target.frame.insetBy(dx: -6, dy: -6)
+            chordPreview.showHalo(state: state, around: Coords.appKit(fromCG: inflated))
+            return
+        }
+
+        // No target window — the app will be launched and fullscreened on the
+        // active screen (see onFocus). Halo around that landing rect so the
+        // preview is predictive: it shows exactly where the app will appear.
+        chordPreview.showHalo(state: state, around: activeScreen().visibleFrame)
+    }
+
+    /// Animate the chord preview from its current frame to the tile
+    /// destination, then hide. Visual continuity hint — the real tile already
+    /// ran synchronously on the event-tap thread by the time this fires.
+    /// .nextScreen crosses screens and would need its own design; just hide.
+    private func animateChordPreviewOut(to position: TilePosition) {
+        if UserDefaults.standard.bool(forKey: "integrationTestMode") {
+            chordPreview.hide()
+            return
+        }
+        if position == .nextScreen {
+            chordPreview.hide()
+            return
+        }
+        let destCG = Coords.rect(for: position, on: activeScreen())
+        chordPreview.animateOut(to: Coords.appKit(fromCG: destCG))
+    }
+
+    private func chordPreviewLabel(for appKey: String) -> String {
+        if appKey.hasPrefix("shiftApp"), let n = Int(appKey.dropFirst("shiftApp".count)) {
+            return "⌘ ⇧ \(n)"
+        }
+        if appKey.hasPrefix("app"), let n = Int(appKey.dropFirst("app".count)) {
+            return "⌘ \(n)"
+        }
+        return appKey
+    }
+
+    private func activeScreen() -> NSScreen {
+        let mouse = NSEvent.mouseLocation
+        return NSScreen.screens.first(where: { $0.frame.contains(mouse) })
+            ?? NSScreen.main
+            ?? NSScreen.screens[0]
     }
 
     /// Listen for SIGUSR1 → clear `WindowTiler.slots`. The integration test

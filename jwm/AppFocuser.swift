@@ -1,28 +1,6 @@
 import AppKit
 
 enum AppFocuser {
-    /// Focus a running app or launch it if not running.
-    static func focusOrLaunch(bundleID: String) {
-        if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
-            // If the app is running but has no windows (e.g. Chrome with all windows closed),
-            // activate alone just shows the menu bar. Re-open the app to trigger a new window,
-            // which is what Spotlight does.
-            let hasWindows = appHasWindows(pid: app.processIdentifier)
-            if hasWindows {
-                app.activate()
-            } else {
-                guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
-                    app.activate()
-                    return
-                }
-                NSWorkspace.shared.openApplication(at: url, configuration: .init())
-            }
-        } else {
-            guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return }
-            NSWorkspace.shared.openApplication(at: url, configuration: .init())
-        }
-    }
-
     /// Launch (or focus) every app configured in any slot, tiling each
     /// fullscreen. Used by the "launch all" chord to bring up a startup
     /// workspace in one keystroke. Already-running apps are also fullscreened.

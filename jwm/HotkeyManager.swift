@@ -17,6 +17,16 @@ final class HotkeyManager {
     /// Outside test mode the chord is left untouched and passes through to
     /// the focused app — see handleEvent's gating.
     private var onAbortIntegrationTests: (() -> Void)?
+    /// Fired on every pending-app transition (chord start, target switch).
+    /// Pure visual feedback hook — must not mutate slot/focus state.
+    private var onPreviewBegin: ((String) -> Void)?
+    /// Fired when the pending state clears via cmd-release or cancel —
+    /// the no-destination paths. Position-key commits fire onPreviewCommit
+    /// instead so the preview can animate toward the tile destination.
+    private var onPreviewEnd: (() -> Void)?
+    /// Fired when the pending state clears via a position key (commit with
+    /// destination known). Strictly before onBeforeAction / onFocusTile.
+    private var onPreviewCommit: ((TilePosition) -> Void)?
 
     // Chord state: after cmd+N, waiting for either cmd release (focus only) or position key (tile)
     private var pendingAppKey: String?
@@ -65,6 +75,9 @@ final class HotkeyManager {
         onFocusTile: @escaping (String, TilePosition) -> Void,
         onLaunchAll: @escaping () -> Void = {},
         onBeforeAction: @escaping () -> Void = {},
+        onPreviewBegin: @escaping (String) -> Void = { _ in },
+        onPreviewEnd: @escaping () -> Void = {},
+        onPreviewCommit: @escaping (TilePosition) -> Void = { _ in },
         onAbortIntegrationTests: @escaping () -> Void = {}
     ) {
         self.onFocus = onFocus
@@ -72,6 +85,9 @@ final class HotkeyManager {
         self.onFocusTile = onFocusTile
         self.onLaunchAll = onLaunchAll
         self.onBeforeAction = onBeforeAction
+        self.onPreviewBegin = onPreviewBegin
+        self.onPreviewEnd = onPreviewEnd
+        self.onPreviewCommit = onPreviewCommit
         self.onAbortIntegrationTests = onAbortIntegrationTests
 
         let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
@@ -118,6 +134,7 @@ final class HotkeyManager {
             if !flags.contains(.maskCommand) {
                 logger.info("cmd released, focus only: \(appKey)")
                 pendingAppKey = nil
+                onPreviewEnd?()
                 onBeforeAction?()
                 onFocus?(appKey)
             }
@@ -137,6 +154,7 @@ final class HotkeyManager {
             if let position = keyCodeToPosition[keyCode] {
                 logger.info("Chord complete: \(appKey) -> \(position)")
                 pendingAppKey = nil
+                onPreviewCommit?(position)
                 onBeforeAction?()
                 onFocusTile?(appKey, position)
                 return nil
@@ -146,11 +164,13 @@ final class HotkeyManager {
                 let newAppKey = hasShift ? "shiftApp\(appNumber)" : "app\(appNumber)"
                 logger.info("Switching pending app from \(appKey) to \(newAppKey)")
                 pendingAppKey = newAppKey
+                onPreviewBegin?(newAppKey)
                 return nil
             }
             // Any other key with cmd held → cancel chord, pass through
             logger.info("Chord cancelled by other key")
             pendingAppKey = nil
+            onPreviewEnd?()
         }
 
         // ctrl+cmd+h/l/j → tile current window
@@ -188,6 +208,7 @@ final class HotkeyManager {
                 let appKey = hasShift ? "shiftApp\(appNumber)" : "app\(appNumber)"
                 logger.info("\(appKey) triggered, holding for position key...")
                 pendingAppKey = appKey
+                onPreviewBegin?(appKey)
                 return nil
             }
         }
