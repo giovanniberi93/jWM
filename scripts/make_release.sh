@@ -18,6 +18,14 @@ fi
 REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
+TAP_ROOT="$REPO_ROOT/../homebrew-janzowm"
+TAP_TEMPLATE="$TAP_ROOT/Casks/janzowm.rb.template"
+TAP_CASK="$TAP_ROOT/Casks/janzowm.rb"
+if [[ ! -d "$TAP_ROOT/.git" ]] || [[ ! -f "$TAP_TEMPLATE" ]]; then
+    echo "Tap repo not found at $TAP_ROOT (need a clone of homebrew-janzowm with Casks/janzowm.rb.template)." >&2
+    exit 1
+fi
+
 if [[ -n "$(git status --porcelain)" ]]; then
     echo "Working tree is not clean. Commit or stash before releasing." >&2
     exit 1
@@ -44,3 +52,11 @@ if [[ -n "$NOTES" ]]; then
 else
     gh release create "$TAG" "$ZIP" --title "$TAG" --generate-notes
 fi
+
+SHA256="$(shasum -a 256 "$ZIP" | awk '{print $1}')"
+sed -e "s/__VERSION__/$VERSION/g" -e "s/__SHA256__/$SHA256/g" "$TAP_TEMPLATE" > "$TAP_CASK"
+(cd "$TAP_ROOT" && git add Casks/janzowm.rb && git commit -m "Update cask to $TAG")
+
+echo
+echo "Tap cask updated locally and committed in $TAP_ROOT."
+echo "Push it from there: (cd $TAP_ROOT && git push)"
