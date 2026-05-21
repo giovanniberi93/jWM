@@ -47,11 +47,8 @@ struct SettingsView: View {
                 }
                 .padding(.bottom, 10)
 
-                VStack(spacing: 10) {
-                    KeyRow(modifiers: ["⌘"], shifted: false)
-                    KeyRow(modifiers: ["⌘", "⇧"], shifted: true)
-                }
-                .padding(.bottom, 22)
+                SlotsBoard()
+                    .padding(.bottom, 22)
 
                 sectionHeader("General")
                     .padding(.bottom, 10)
@@ -257,36 +254,68 @@ private struct StatusChip: View {
     }
 }
 
+// MARK: - Bindings board (drag & drop between slots)
+
+/// Wraps the two `KeyRow`s in a shared coordinate space so a binding can be
+/// dragged from any slot to any other empty slot — including across rows.
+/// Owns the `SlotDragCoordinator` and renders the floating ghost overlay.
+private struct SlotsBoard: View {
+    @StateObject private var coord = SlotDragCoordinator()
+
+    var body: some View {
+        VStack(spacing: 10) {
+            KeyRow(modifiers: ["⌘"], shifted: false, coord: coord)
+            KeyRow(modifiers: ["⌘", "⇧"], shifted: true, coord: coord)
+        }
+        .coordinateSpace(name: "slotGrid")
+        .onPreferenceChange(SlotFramePreferenceKey.self) { frames in
+            coord.frames = frames
+        }
+        .overlay { dragGhost }
+    }
+
+    @ViewBuilder
+    private var dragGhost: some View {
+        if let drag = coord.dragState {
+            BoundAppIcon(bundleID: drag.bundleID)
+                .frame(width: 26, height: 26)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .scaleEffect(1.18)
+                .opacity(0.72)
+                .shadow(color: .black.opacity(0.28), radius: 4, y: 2)
+                .position(drag.currentLocation)
+                .allowsHitTesting(false)
+        }
+    }
+}
+
 // MARK: - Key row (binding strip)
 
 private struct KeyRow: View {
     let modifiers: [String]
     let shifted: Bool
+    @ObservedObject var coord: SlotDragCoordinator
     @State private var hoveredSlot: Int? = nil
     @State private var hoveredAppName: String? = nil
 
     var body: some View {
         HStack(spacing: 6) {
             ForEach(slotOrder, id: \.self) { slot in
-                Color.clear
-                    .aspectRatio(1, contentMode: .fit)
-                    .overlay {
-                        SlotKeycap(
-                            slot: slot,
-                            shifted: shifted,
-                            hovered: hoveredSlot == slot,
-                            onHoverChange: { isHover, name in
-                                if isHover {
-                                    hoveredSlot = slot
-                                    hoveredAppName = name
-                                } else if hoveredSlot == slot {
-                                    hoveredSlot = nil
-                                    hoveredAppName = nil
-                                }
-                            },
-                            onTap: { pickApp(slot: slot, shifted: shifted) }
-                        )
+                KeyRowCell(
+                    slot: slot,
+                    shifted: shifted,
+                    coord: coord,
+                    isHovered: hoveredSlot == slot,
+                    onHoverChange: { isHover, name in
+                        if isHover {
+                            hoveredSlot = slot
+                            hoveredAppName = name
+                        } else if hoveredSlot == slot {
+                            hoveredSlot = nil
+                            hoveredAppName = nil
+                        }
                     }
+                )
             }
         }
         .padding(.horizontal, 14)
@@ -318,7 +347,97 @@ private struct KeyRow: View {
         }
     }
 
-    private func pickApp(slot: Int, shifted: Bool) {
+}
+
+// MARK: - Key row cell
+
+/// One slot inside a `KeyRow`. Owns its own drop-target state so a Finder
+/// drag of an `.app` over an empty cell can light it up; commits the
+/// binding when an `.app` is dropped on an empty slot. Filled slots reject
+/// drops — the user must drag the existing binding away (or clear it via
+/// the × badge) before another app can take that slot.
+private struct KeyRowCell: View {
+    let slot: Int
+    let shifted: Bool
+    @ObservedObject var coord: SlotDragCoordinator
+    let isHovered: Bool
+    let onHoverChange: (Bool, String?) -> Void
+
+    @State private var isDropTargeted: Bool = false
+    @State private var isRejecting: Bool = false
+
+    private var id: SlotID { SlotID(slot: slot, shifted: shifted) }
+    private var isDragSource: Bool { coord.dragState?.source == id }
+
+    var body: some View {
+        Color.clear
+            .aspectRatio(1, contentMode: .fit)
+            .background(
+                GeometryReader { proxy in
+                    Color.clear
+                        .preference(
+                            key: SlotFramePreferenceKey.self,
+                            value: [id: proxy.frame(in: .named("slotGrid"))]
+                        )
+                }
+            )
+            .overlay {
+                SlotKeycap(
+                    slot: slot,
+                    shifted: shifted,
+                    hovered: isHovered,
+                    target: isDropTargeted && !isFilled,
+                    isDragSource: isDragSource,
+                    isRejecting: isRejecting,
+                    onHoverChange: onHoverChange,
+                    onTap: pickApp
+                )
+            }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 5, coordinateSpace: .named("slotGrid"))
+                    .onChanged { value in
+                        if coord.dragState == nil {
+                            coord.startDrag(source: id, at: value.location)
+                        } else {
+                            coord.updateLocation(value.location)
+                        }
+                    }
+                    .onEnded { value in
+                        coord.endDrag(at: value.location)
+                    }
+            )
+            .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
+                handleFinderDrop(providers)
+            }
+    }
+
+    private var isFilled: Bool {
+        let bid = UserDefaults.standard.string(forKey: slotBundleIDKey(slot: slot, shifted: shifted)) ?? ""
+        return !bid.isEmpty
+    }
+
+    private func handleFinderDrop(_ providers: [NSItemProvider]) -> Bool {
+        guard !isFilled else { return false }
+        guard let provider = providers.first else { return false }
+        _ = provider.loadObject(ofClass: URL.self) { url, _ in
+            DispatchQueue.main.async {
+                let ok = url.map { bindAppIfValid(url: $0, slot: slot, shifted: shifted) } ?? false
+                if !ok { flashRejection() }
+            }
+        }
+        return true
+    }
+
+    /// Briefly paint the keycap red after a Finder drop that isn't a valid
+    /// `.app` bundle, so the user sees the file was refused.
+    private func flashRejection() {
+        withAnimation(.easeIn(duration: 0.08)) { isRejecting = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+            withAnimation(.easeOut(duration: 0.35)) { isRejecting = false }
+        }
+    }
+
+    private func pickApp() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.application]
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
@@ -327,13 +446,7 @@ private struct KeyRow: View {
         panel.treatsFilePackagesAsDirectories = false
         let completion: (NSApplication.ModalResponse) -> Void = { response in
             guard response == .OK, let url = panel.url else { return }
-            guard let bundle = Bundle(url: url),
-                  let bid = bundle.bundleIdentifier else { return }
-            UserDefaults.standard.set(bid, forKey: slotBundleIDKey(slot: slot, shifted: shifted))
-            UserDefaults.standard.set(
-                FileManager.default.displayName(atPath: url.path),
-                forKey: slotAppNameKey(slot: slot, shifted: shifted)
-            )
+            bindAppIfValid(url: url, slot: slot, shifted: shifted)
         }
         if let parent = SettingsWindowController.shared.sheetParentWindow {
             panel.beginSheetModal(for: parent, completionHandler: completion)
@@ -341,6 +454,26 @@ private struct KeyRow: View {
             panel.begin(completionHandler: completion)
         }
     }
+}
+
+/// Writes a slot binding for `url` if it points to a real `.app` bundle
+/// with a bundle identifier. Shared by the NSOpenPanel picker and the
+/// Finder drop path so both gates apply the same validation. Returns
+/// `true` if the binding was written, `false` if `url` failed validation
+/// — callers (notably the drop handler) use this to drive the red
+/// rejection flash.
+@discardableResult
+private func bindAppIfValid(url: URL, slot: Int, shifted: Bool) -> Bool {
+    guard let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType,
+          type.conforms(to: .application) else { return false }
+    guard let bundle = Bundle(url: url),
+          let bid = bundle.bundleIdentifier else { return false }
+    UserDefaults.standard.set(bid, forKey: slotBundleIDKey(slot: slot, shifted: shifted))
+    UserDefaults.standard.set(
+        FileManager.default.displayName(atPath: url.path),
+        forKey: slotAppNameKey(slot: slot, shifted: shifted)
+    )
+    return true
 }
 
 // MARK: - Tiling & focus reference (read-only)
