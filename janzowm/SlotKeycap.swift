@@ -406,14 +406,14 @@ struct PathBadge: View {
 
     var body: some View {
         ZStack {
-            Circle().fill(Color.white)
+            Circle().fill(.background)
             Image(systemName: "folder.fill")
                 .font(.system(size: 8, weight: .bold))
                 .foregroundStyle(Self.accent)
         }
         .frame(width: 14, height: 14)
-        .shadow(color: .black.opacity(0.25), radius: 1, y: 0.5)
-        .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
+        .shadow(color: .black.opacity(0.4), radius: 2.5, y: 1)
+        .overlay(Circle().stroke(.separator, lineWidth: 1.5))
     }
 }
 
