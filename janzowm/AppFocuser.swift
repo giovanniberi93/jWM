@@ -64,45 +64,96 @@ enum AppFocuser {
         completion: @escaping (NSRunningApplication?) -> Void
     ) {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+            logger.info("launchAndWaitForWindow: urlForApplication returned nil for \(bundleID)")
             DispatchQueue.main.async { completion(nil) }
             return
         }
-        // With a launch path, route through `open(urls:withApplicationAt:)`
-        // so macOS LaunchServices opens the document/folder in a new window —
-        // matches `open -a <App> <path>`. Missing path → plain launch.
-        if let path,
-           !path.isEmpty {
+
+        // Resolve the path once; the wait loop may need to reissue the
+        // LaunchServices call if a quitting instance swallowed our first one.
+        let resolvedPath: String? = {
+            guard let path, !path.isEmpty else { return nil }
             let expanded = (path as NSString).expandingTildeInPath
-            if FileManager.default.fileExists(atPath: expanded) {
+            guard FileManager.default.fileExists(atPath: expanded) else {
+                logger.info("Path missing for \(bundleID): \(expanded) — launching without path")
+                return nil
+            }
+            return expanded
+        }()
+
+        // Single dispatch closure so the wait loop can re-issue the launch
+        // if the running pid we were waiting on disappears (cmd+Q tear-down
+        // in flight when LS routed our open).
+        func dispatchLaunch(reason: String) {
+            if let expanded = resolvedPath {
                 let cfg = NSWorkspace.OpenConfiguration()
                 cfg.activates = true
-                NSWorkspace.shared.open([URL(fileURLWithPath: expanded)], withApplicationAt: url, configuration: cfg)
+                logger.info("LaunchServices open \(bundleID) at \(url.path) with path \(expanded)\(reason)")
+                NSWorkspace.shared.open(
+                    [URL(fileURLWithPath: expanded)],
+                    withApplicationAt: url,
+                    configuration: cfg
+                ) { app, error in
+                    if let error = error {
+                        logger.error("LaunchServices open(\(bundleID), path: \(expanded)) failed: \(error.localizedDescription)")
+                    } else {
+                        logger.info("LaunchServices open(\(bundleID), path: \(expanded)) → pid=\(app?.processIdentifier ?? -1)")
+                    }
+                }
             } else {
-                logger.info("Path missing for \(bundleID): \(expanded) — launching without path")
-                NSWorkspace.shared.openApplication(at: url, configuration: .init())
+                logger.info("LaunchServices openApplication \(bundleID) at \(url.path)\(reason)")
+                NSWorkspace.shared.openApplication(at: url, configuration: .init()) { _, error in
+                    if let error = error {
+                        logger.error("LaunchServices openApplication(\(bundleID)) failed: \(error.localizedDescription)")
+                    }
+                }
             }
-        } else {
-            NSWorkspace.shared.openApplication(at: url, configuration: .init())
         }
+
+        // Capture the pid we observed before we asked LS to open. If this
+        // pid disappears mid-wait, we know our LS event was routed into a
+        // quitting instance and we need to reissue against a fresh launch.
+        let initialPid = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.processIdentifier ?? -1
+        dispatchLaunch(reason: "")
 
         DispatchQueue.global(qos: .userInitiated).async {
             let start = Date()
+            var didRetry = false
             while Date().timeIntervalSince(start) < timeout {
-                if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first,
-                   appHasWindows(pid: app.processIdentifier) {
+                let runningNow = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first
+                if let app = runningNow, appHasWindows(pid: app.processIdentifier) {
                     DispatchQueue.main.async {
                         completion(app)
                     }
                     return
                 }
+                // If we had an existing pid before we issued the open and it
+                // has now exited (e.g. IntelliJ's ~3-4s post-cmd+Q tear-down
+                // was still in flight when LS routed our open into it), the
+                // first LS event was dropped — reissue. Only once, to avoid
+                // any infinite loops if relaunch keeps failing.
+                if !didRetry, initialPid > 0, runningNow == nil {
+                    didRetry = true
+                    logger.info("\(bundleID) (pid=\(initialPid)) exited during wait — reissuing LaunchServices launch")
+                    DispatchQueue.main.async {
+                        dispatchLaunch(reason: " (retry after quit)")
+                    }
+                }
                 Thread.sleep(forTimeInterval: 0.05)
             }
-            logger.info("Timed out waiting for \(bundleID) window")
+            // Cross-check via Quartz: AX may miss windows for an app that's
+            // still loading (splash/welcome) where the welcome view isn't a
+            // kAXWindow. Quartz sees what WindowServer sees, so it's the
+            // tiebreaker when we hit the timeout.
+            let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first
+            let pid = running?.processIdentifier ?? -1
+            let quartzCount = pid > 0 ? QuartzWindowList.windowsForPid(pid).count : 0
+            logger.info("Timed out waiting for \(bundleID) window — running=\(running != nil) pid=\(pid) quartzWindows=\(quartzCount)")
             DispatchQueue.main.async {
                 // Activate-on-timeout preserves prior behavior so the user at
                 // least lands in the app; caller still gets nil so it can run
                 // any cleanup.
-                NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.activate()
+                running?.activate()
                 completion(nil)
             }
         }
@@ -144,7 +195,13 @@ enum AppFocuser {
             // explicitly activate as belt-and-braces.
             let cfg = NSWorkspace.OpenConfiguration()
             cfg.activates = true
-            NSWorkspace.shared.open([fileURL], withApplicationAt: appURL, configuration: cfg) { _, _ in
+            logger.info("LaunchServices open \(bundleID) at \(appURL.path) with path \(expanded) (running, has windows)")
+            NSWorkspace.shared.open([fileURL], withApplicationAt: appURL, configuration: cfg) { opened, error in
+                if let error = error {
+                    logger.error("LaunchServices open(\(bundleID), path: \(expanded)) failed: \(error.localizedDescription)")
+                } else {
+                    logger.info("LaunchServices open(\(bundleID), path: \(expanded)) → pid=\(opened?.processIdentifier ?? -1)")
+                }
                 DispatchQueue.main.async { app.activate() }
             }
             return
