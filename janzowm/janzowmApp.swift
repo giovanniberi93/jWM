@@ -212,9 +212,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     logger.info("\(appKey) has no app configured")
                     return
                 }
-                logger.info("Focusing \(appKey) -> \(bundleID)")
+                let path = UserDefaults.standard.string(forKey: "\(appKey)_path") ?? ""
+                logger.info("Focusing \(appKey) -> \(bundleID)\(path.isEmpty ? "" : " (path: \(path))")")
                 UsageStats.record(.focus)
-                AppFocuser.focusOrLaunch(bundleID: bundleID)
+                AppFocuser.focusOrLaunch(bundleID: bundleID, path: path.isEmpty ? nil : path)
                 OnboardingCoordinator.shared.observeAction(.focus(slotKey: appKey))
                 // No explicit snapshot of the new app: NSWorkspace activation
                 // notification will fire and onFocusChanged handles it.
@@ -229,14 +230,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     logger.info("\(appKey) has no app configured")
                     return
                 }
-                logger.info("Tile + focus \(appKey) -> \(bundleID) -> \(position)")
+                let path = UserDefaults.standard.string(forKey: "\(appKey)_path") ?? ""
+                logger.info("Tile + focus \(appKey) -> \(bundleID) -> \(position)\(path.isEmpty ? "" : " (path: \(path))")")
                 UsageStats.record(.focusTile)
-                if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first,
+                let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first
+                // When a launch path is attached, always route through
+                // `launchAndWaitForWindow(path:)` so macOS LaunchServices opens
+                // the document/folder in a new window — even if the app is
+                // already running — and we tile that window once it appears.
+                if path.isEmpty,
+                   let app = running,
                    AppFocuser.appHasWindows(pid: app.processIdentifier) {
                     WindowTiler.tile(position, app: app)
                     app.activate()
                 } else {
-                    logger.info("App \(bundleID) not running or has no windows, launching + tiling...")
+                    logger.info("Launching + tiling \(bundleID)\(path.isEmpty ? "" : " with path")…")
                     // Block onFocusChanged's snapFocusedToExactHalf from
                     // acting on the launching app's restored geometry — our
                     // tile() below owns positioning for this chord. The flag
@@ -245,7 +253,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     // entry and exit, and by exit the window is at the
                     // chord's target).
                     WindowTiler.suppressDisplaceForBundleID = bundleID
-                    AppFocuser.launchAndWaitForWindow(bundleID: bundleID) { app in
+                    AppFocuser.launchAndWaitForWindow(bundleID: bundleID, path: path.isEmpty ? nil : path) { app in
                         defer {
                             if WindowTiler.suppressDisplaceForBundleID == bundleID {
                                 WindowTiler.suppressDisplaceForBundleID = nil

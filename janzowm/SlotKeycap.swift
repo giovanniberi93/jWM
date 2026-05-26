@@ -12,6 +12,17 @@ func slotAppNameKey(slot: Int, shifted: Bool) -> String {
     "\(shifted ? "shiftApp" : "app")\(slot)_appName"
 }
 
+/// Optional launch path attached to a slot. Stored absolute (tildes are
+/// expanded on read/write). Empty == no path.
+func slotPathKey(slot: Int, shifted: Bool) -> String {
+    "\(shifted ? "shiftApp" : "app")\(slot)_path"
+}
+
+/// "folder" | "file" — used to label the indicator/menu, not required for launch.
+func slotPathKindKey(slot: Int, shifted: Bool) -> String {
+    "\(shifted ? "shiftApp" : "app")\(slot)_pathKind"
+}
+
 /// Identifies a single slot binding across the two Settings KeyRows.
 struct SlotID: Hashable {
     let slot: Int
@@ -128,8 +139,25 @@ final class SlotDragCoordinator: ObservableObject {
                 let defaults = UserDefaults.standard
                 defaults.set(drag.bundleID, forKey: slotBundleIDKey(slot: target.slot, shifted: target.shifted))
                 defaults.set(drag.appName, forKey: slotAppNameKey(slot: target.slot, shifted: target.shifted))
+                // Carry the source slot's launch path (if any) along with the binding.
+                let sourcePathKey = slotPathKey(slot: drag.source.slot, shifted: drag.source.shifted)
+                let sourceKindKey = slotPathKindKey(slot: drag.source.slot, shifted: drag.source.shifted)
+                let targetPathKey = slotPathKey(slot: target.slot, shifted: target.shifted)
+                let targetKindKey = slotPathKindKey(slot: target.slot, shifted: target.shifted)
+                if let path = defaults.string(forKey: sourcePathKey), !path.isEmpty {
+                    defaults.set(path, forKey: targetPathKey)
+                } else {
+                    defaults.removeObject(forKey: targetPathKey)
+                }
+                if let kind = defaults.string(forKey: sourceKindKey), !kind.isEmpty {
+                    defaults.set(kind, forKey: targetKindKey)
+                } else {
+                    defaults.removeObject(forKey: targetKindKey)
+                }
                 defaults.removeObject(forKey: slotBundleIDKey(slot: drag.source.slot, shifted: drag.source.shifted))
                 defaults.removeObject(forKey: slotAppNameKey(slot: drag.source.slot, shifted: drag.source.shifted))
+                defaults.removeObject(forKey: sourcePathKey)
+                defaults.removeObject(forKey: sourceKindKey)
                 self.dragState = nil
             }
         } else {
@@ -173,6 +201,9 @@ struct SlotKeycap: View {
 
     @AppStorage var bundleID: String
     @AppStorage var appName: String
+    @AppStorage var path: String
+
+    @State private var pathPopoverShown: Bool = false
 
     init(
         slot: Int,
@@ -198,7 +229,10 @@ struct SlotKeycap: View {
         self.onTap = onTap
         _bundleID = AppStorage(wrappedValue: "", slotBundleIDKey(slot: slot, shifted: shifted))
         _appName = AppStorage(wrappedValue: "", slotAppNameKey(slot: slot, shifted: shifted))
+        _path = AppStorage(wrappedValue: "", slotPathKey(slot: slot, shifted: shifted))
     }
+
+    private var hasPath: Bool { !path.isEmpty }
 
     private var filled: Bool { !forceEmpty && !appName.isEmpty }
     private var showsIcon: Bool { filled && !isDragSource }
@@ -246,6 +280,25 @@ struct SlotKeycap: View {
                                 .offset(x: -5, y: 3)
                         }
                     }
+                    .overlay(alignment: .bottomTrailing) {
+                        if hasPath {
+                            PathBadge()
+                                .offset(x: 4, y: 4)
+                                .onTapGesture { pathPopoverShown = true }
+                                .popover(isPresented: $pathPopoverShown, arrowEdge: .top) {
+                                    PathPopoverContent(
+                                        slot: slot,
+                                        shifted: shifted,
+                                        bundleID: bundleID,
+                                        appName: appName,
+                                        path: $path,
+                                        onClose: { pathPopoverShown = false }
+                                    )
+                                    .padding(12)
+                                    .frame(width: 290)
+                                }
+                        }
+                    }
             } else {
                 Circle()
                     .strokeBorder(
@@ -289,11 +342,37 @@ struct SlotKeycap: View {
             guard !filled else { return }
             onTap()
         }
+        .contextMenu {
+            if filled && !hasPath {
+                Button("Select path…") { selectPath() }
+            }
+        }
     }
 
     private func clear() {
         bundleID = ""
         appName = ""
+        path = ""
+        UserDefaults.standard.removeObject(forKey: slotPathKindKey(slot: slot, shifted: shifted))
+    }
+
+    /// Pick a file or folder to attach to this slot. The panel accepts
+    /// either, and we record which kind was chosen so the popover can label
+    /// it accordingly.
+    private func selectPath() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = URL(fileURLWithPath: NSHomeDirectory())
+        panel.begin { resp in
+            guard resp == .OK, let url = panel.url else { return }
+            var isDir: ObjCBool = false
+            FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
+            path = url.path
+            UserDefaults.standard.set(isDir.boolValue ? "folder" : "file",
+                                      forKey: slotPathKindKey(slot: slot, shifted: shifted))
+        }
     }
 }
 
@@ -318,6 +397,135 @@ struct BoundAppIcon: View {
         }
         return NSWorkspace.shared.icon(forFile: url.path)
     }
+}
+
+/// Tiny folder badge shown bottom-right of a bound app icon when a launch
+/// path is attached. Tapping it opens the path popover.
+struct PathBadge: View {
+    private static let accent = Color(red: 0x0a/255, green: 0x84/255, blue: 0xff/255)
+
+    var body: some View {
+        ZStack {
+            Circle().fill(Color.white)
+            Image(systemName: "folder.fill")
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(Self.accent)
+        }
+        .frame(width: 14, height: 14)
+        .shadow(color: .black.opacity(0.25), radius: 1, y: 0.5)
+        .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
+    }
+}
+
+/// Popover content for inspecting and editing the launch path attached to a
+/// slot binding. Surfaced by tapping the `PathBadge` on a bound keycap.
+struct PathPopoverContent: View {
+    let slot: Int
+    let shifted: Bool
+    let bundleID: String
+    let appName: String
+    @Binding var path: String
+    let onClose: () -> Void
+
+    private static let accent = Color(red: 0x0a/255, green: 0x84/255, blue: 0xff/255)
+
+    private var chord: String { shifted ? "⇧⌘\(slot)" : "⌘\(slot)" }
+    private var displayed: String { displayPath(path) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                BoundAppIcon(bundleID: bundleID)
+                    .frame(width: 20, height: 20)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                Text(appName)
+                    .font(.system(size: 12.5, weight: .semibold))
+                Spacer(minLength: 8)
+                Text(chord)
+                    .font(.system(size: 10.5, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(.quinary))
+            }
+            Text("OPEN WITH PATH")
+                .font(.system(size: 10.5, weight: .bold))
+                .tracking(0.7)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Image(systemName: "folder")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Self.accent)
+                Text(displayed)
+                    .font(.system(size: 11.5, design: .monospaced))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: 6).fill(.quinary))
+            HStack(spacing: 8) {
+                Button("Remove path", role: .destructive) {
+                    path = ""
+                    UserDefaults.standard.removeObject(forKey: slotPathKindKey(slot: slot, shifted: shifted))
+                    onClose()
+                }
+                .controlSize(.small)
+                .tint(.red)
+                Spacer()
+                Button("Choose…") { choose() }
+                    .controlSize(.small)
+            }
+        }
+    }
+
+    private func choose() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = URL(fileURLWithPath: NSHomeDirectory())
+        panel.begin { resp in
+            guard resp == .OK, let url = panel.url else { return }
+            var isDir: ObjCBool = false
+            FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
+            path = url.path
+            UserDefaults.standard.set(isDir.boolValue ? "folder" : "file",
+                                      forKey: slotPathKindKey(slot: slot, shifted: shifted))
+        }
+    }
+}
+
+/// Format a path for display: replace the user's home prefix with `~`, and
+/// — when the result still exceeds `maxLength` — shorten every intermediate
+/// component to its first character so the leaf name stays readable. The
+/// leaf is what tells the user what they bound; truncating it with an
+/// ellipsis ("…/long-folder-na…") obscures the only part that matters.
+///
+/// `/Users/me/very/long/path/file.txt` → `~/v/l/p/file.txt`
+func displayPath(_ raw: String, maxLength: Int = 36) -> String {
+    if raw.isEmpty { return raw }
+    let home = NSHomeDirectory()
+    let displayed: String
+    if raw == home {
+        return "~"
+    } else if raw.hasPrefix(home + "/") {
+        displayed = "~" + raw.dropFirst(home.count)
+    } else {
+        displayed = raw
+    }
+    if displayed.count <= maxLength { return displayed }
+
+    let parts = displayed.split(separator: "/", omittingEmptySubsequences: false)
+    guard parts.count > 1 else { return displayed }
+    let lastIdx = parts.count - 1
+    let compressed = parts.enumerated().map { i, part -> String in
+        if i == lastIdx || part.isEmpty { return String(part) }
+        return String(part.first!)
+    }
+    return compressed.joined(separator: "/")
 }
 
 /// Hover-revealed × badge that clears the binding.

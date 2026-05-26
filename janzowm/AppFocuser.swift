@@ -59,6 +59,7 @@ enum AppFocuser {
     /// resorting to delay-based safety nets.
     static func launchAndWaitForWindow(
         bundleID: String,
+        path: String? = nil,
         timeout: TimeInterval = 10.0,
         completion: @escaping (NSRunningApplication?) -> Void
     ) {
@@ -66,7 +67,23 @@ enum AppFocuser {
             DispatchQueue.main.async { completion(nil) }
             return
         }
-        NSWorkspace.shared.openApplication(at: url, configuration: .init())
+        // With a launch path, route through `open(urls:withApplicationAt:)`
+        // so macOS LaunchServices opens the document/folder in a new window —
+        // matches `open -a <App> <path>`. Missing path → plain launch.
+        if let path,
+           !path.isEmpty {
+            let expanded = (path as NSString).expandingTildeInPath
+            if FileManager.default.fileExists(atPath: expanded) {
+                let cfg = NSWorkspace.OpenConfiguration()
+                cfg.activates = true
+                NSWorkspace.shared.open([URL(fileURLWithPath: expanded)], withApplicationAt: url, configuration: cfg)
+            } else {
+                logger.info("Path missing for \(bundleID): \(expanded) — launching without path")
+                NSWorkspace.shared.openApplication(at: url, configuration: .init())
+            }
+        } else {
+            NSWorkspace.shared.openApplication(at: url, configuration: .init())
+        }
 
         DispatchQueue.global(qos: .userInitiated).async {
             let start = Date()
@@ -88,6 +105,55 @@ enum AppFocuser {
                 NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.activate()
                 completion(nil)
             }
+        }
+    }
+
+    /// Focus/launch with an optional launch path. When `path` is set we
+    /// route through `NSWorkspace.open(_:withApplicationAt:configuration:)`
+    /// so macOS LaunchServices opens the document/folder in a new window —
+    /// matches `open -a <App> <path>` semantics. Missing path falls back to
+    /// plain focus + an info log so the user is never blocked.
+    ///
+    /// For the running-but-window-less case (e.g. IntelliJ with no project
+    /// open), we route through `launchAndWaitForWindow(path:)` and activate
+    /// only once a window appears. Calling `cfg.activates = true` against an
+    /// app with no current window can bounce focus to the next app while the
+    /// target's window is still being constructed; waiting for a real window
+    /// eliminates that race.
+    static func focusOrLaunch(bundleID: String, path: String?) {
+        guard let path, !path.isEmpty else {
+            focusOrLaunch(bundleID: bundleID)
+            return
+        }
+        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+            focusOrLaunch(bundleID: bundleID)
+            return
+        }
+        let expanded = (path as NSString).expandingTildeInPath
+        guard FileManager.default.fileExists(atPath: expanded) else {
+            logger.info("Path missing for \(bundleID): \(expanded) — launching without path")
+            focusOrLaunch(bundleID: bundleID)
+            return
+        }
+        let fileURL = URL(fileURLWithPath: expanded)
+
+        if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first,
+           appHasWindows(pid: app.processIdentifier) {
+            // Running with at least one window — open the path (LaunchServices
+            // routes it to the app to spawn a new window for the document) and
+            // explicitly activate as belt-and-braces.
+            let cfg = NSWorkspace.OpenConfiguration()
+            cfg.activates = true
+            NSWorkspace.shared.open([fileURL], withApplicationAt: appURL, configuration: cfg) { _, _ in
+                DispatchQueue.main.async { app.activate() }
+            }
+            return
+        }
+
+        // Not running, or running with no windows: wait for the path to
+        // actually open a window, then activate.
+        launchAndWaitForWindow(bundleID: bundleID, path: path) { app in
+            app?.activate()
         }
     }
 

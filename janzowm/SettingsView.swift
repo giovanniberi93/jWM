@@ -142,6 +142,8 @@ struct SettingsView: View {
             for shifted in [false, true] {
                 defaults.removeObject(forKey: slotBundleIDKey(slot: slot, shifted: shifted))
                 defaults.removeObject(forKey: slotAppNameKey(slot: slot, shifted: shifted))
+                defaults.removeObject(forKey: slotPathKey(slot: slot, shifted: shifted))
+                defaults.removeObject(forKey: slotPathKindKey(slot: slot, shifted: shifted))
             }
         }
     }
@@ -296,7 +298,6 @@ private struct KeyRow: View {
     let shifted: Bool
     @ObservedObject var coord: SlotDragCoordinator
     @State private var hoveredSlot: Int? = nil
-    @State private var hoveredAppName: String? = nil
 
     var body: some View {
         HStack(spacing: 6) {
@@ -306,13 +307,11 @@ private struct KeyRow: View {
                     shifted: shifted,
                     coord: coord,
                     isHovered: hoveredSlot == slot,
-                    onHoverChange: { isHover, name in
+                    onHoverChange: { isHover, _ in
                         if isHover {
                             hoveredSlot = slot
-                            hoveredAppName = name
                         } else if hoveredSlot == slot {
                             hoveredSlot = nil
-                            hoveredAppName = nil
                         }
                     }
                 )
@@ -329,24 +328,6 @@ private struct KeyRow: View {
         )
         .overlay(alignment: .topLeading) { ChordCornerTab(modifiers: modifiers) }
     }
-
-    @ViewBuilder
-    private var readout: some View {
-        if hoveredSlot != nil {
-            if let name = hoveredAppName, !name.isEmpty {
-                Text(name)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.primary)
-            } else {
-                Text("unbound — click to assign")
-                    .font(.system(size: 11).italic())
-                    .foregroundStyle(.tertiary)
-            }
-        } else {
-            Text(" ").font(.system(size: 12)).frame(minHeight: 16)
-        }
-    }
-
 }
 
 // MARK: - Key row cell
